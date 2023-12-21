@@ -19,6 +19,7 @@
 		0C6378E6293057370080CAFD /* XcodeProj+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C6378E5293057370080CAFD /* XcodeProj+Extension.swift */; };
 		0C6378E82930577B0080CAFD /* enum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C6378E72930577B0080CAFD /* enum.swift */; };
 		0CA65D942B33D91000903047 /* SFTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CA65D932B33D91000903047 /* SFTP.swift */; };
+		0CA7BE432B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CA7BE422B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift */; };
 		0CB18F5B2937B22B00C58AAD /* ExportOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */; };
 		0CCC20F32937A73D00B9EA88 /* Entitlements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC20F12937A73D00B9EA88 /* Entitlements.swift */; };
 		0CCC20F62937AD9800B9EA88 /* Destination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC20F52937AD9800B9EA88 /* Destination.swift */; };
@@ -56,6 +57,7 @@
 		0C6378E5293057370080CAFD /* XcodeProj+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XcodeProj+Extension.swift"; sourceTree = "<group>"; };
 		0C6378E72930577B0080CAFD /* enum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = enum.swift; sourceTree = "<group>"; };
 		0CA65D932B33D91000903047 /* SFTP.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SFTP.swift; sourceTree = "<group>"; };
+		0CA7BE422B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCBuildConfiguration+Extension.swift"; sourceTree = "<group>"; };
 		0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportOptions.swift; sourceTree = "<group>"; };
 		0CCC20F12937A73D00B9EA88 /* Entitlements.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Entitlements.swift; sourceTree = "<group>"; };
 		0CCC20F52937AD9800B9EA88 /* Destination.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Destination.swift; sourceTree = "<group>"; };
@@ -108,19 +110,13 @@
 		0C2D0CBE291EA20E0096284F /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				0CA7BE442B33EECC000A3441 /* Extension */,
 				0CA65D932B33D91000903047 /* SFTP.swift */,
 				0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */,
 				0CCC20F52937AD9800B9EA88 /* Destination.swift */,
 				0CCC20F12937A73D00B9EA88 /* Entitlements.swift */,
 				0C6378E72930577B0080CAFD /* enum.swift */,
 				0C2D0CCD291EB1AB0096284F /* MobileProvision.swift */,
-				0C6378DF292E7F270080CAFD /* X509Certificate+Extension.swift */,
-				0C2D0CD0291EBA360096284F /* MobileProvision+Extension.swift */,
-				0C6378E1293052200080CAFD /* Date+Extension.swift */,
-				0C6378E3293056FE0080CAFD /* PBXNativeTarget+Extension.swift */,
-				0C6378E5293057370080CAFD /* XcodeProj+Extension.swift */,
-				0C2D0CDD292159970096284F /* Data+Extension.swift */,
-				0C3D98EA29324CF100C3FD9C /* XCConfig+Extension.swift */,
 				0C2D0CBC291E92290096284F /* IPABuild.swift */,
 				0CF298752933417400120FEE /* ShellOut.swift */,
 			);
@@ -134,6 +130,21 @@
 				0C2D0CDC2920D8C30096284F /* test.cer */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		0CA7BE442B33EECC000A3441 /* Extension */ = {
+			isa = PBXGroup;
+			children = (
+				0C6378DF292E7F270080CAFD /* X509Certificate+Extension.swift */,
+				0C2D0CD0291EBA360096284F /* MobileProvision+Extension.swift */,
+				0C6378E1293052200080CAFD /* Date+Extension.swift */,
+				0C6378E3293056FE0080CAFD /* PBXNativeTarget+Extension.swift */,
+				0C6378E5293057370080CAFD /* XcodeProj+Extension.swift */,
+				0C2D0CDD292159970096284F /* Data+Extension.swift */,
+				0C3D98EA29324CF100C3FD9C /* XCConfig+Extension.swift */,
+				0CA7BE422B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift */,
+			);
+			path = Extension;
 			sourceTree = "<group>";
 		};
 		5FECAE08AD2849B256CA5FEA /* Pods */ = {
@@ -247,6 +258,7 @@
 				0C6378E6293057370080CAFD /* XcodeProj+Extension.swift in Sources */,
 				0C6378E82930577B0080CAFD /* enum.swift in Sources */,
 				0C6378E0292E7F270080CAFD /* X509Certificate+Extension.swift in Sources */,
+				0CA7BE432B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift in Sources */,
 				0CCC20F62937AD9800B9EA88 /* Destination.swift in Sources */,
 				0C2D0CD1291EBA360096284F /* MobileProvision+Extension.swift in Sources */,
 				0C6378E2293052200080CAFD /* Date+Extension.swift in Sources */,

@@ -53,7 +53,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "/Users/fenglh/flat/code/echo-ios/Echo.xcodeproj"
+            argument = "/Users/fenglh/flat/code/Tertian/Tertian.xcodeproj"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
