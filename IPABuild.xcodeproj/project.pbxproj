@@ -98,18 +98,17 @@
 		0C2D0C9A291E555A0096284F /* IPABuild */ = {
 			isa = PBXGroup;
 			children = (
-				0CA65D932B33D91000903047 /* SFTP.swift */,
-				0C2D0CDB2920D8A80096284F /* Test */,
-				0C2D0CBE291EA20E0096284F /* ProvisioningProfile */,
+				0C2D0CDB2920D8A80096284F /* Resources */,
+				0C2D0CBE291EA20E0096284F /* Sources */,
 				0C2D0C9B291E555A0096284F /* main.swift */,
-				0C2D0CC8291EA23D0096284F /* Scripts */,
 			);
 			path = IPABuild;
 			sourceTree = "<group>";
 		};
-		0C2D0CBE291EA20E0096284F /* ProvisioningProfile */ = {
+		0C2D0CBE291EA20E0096284F /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				0CA65D932B33D91000903047 /* SFTP.swift */,
 				0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */,
 				0CCC20F52937AD9800B9EA88 /* Destination.swift */,
 				0CCC20F12937A73D00B9EA88 /* Entitlements.swift */,
@@ -125,23 +124,16 @@
 				0C2D0CBC291E92290096284F /* IPABuild.swift */,
 				0CF298752933417400120FEE /* ShellOut.swift */,
 			);
-			path = ProvisioningProfile;
+			path = Sources;
 			sourceTree = "<group>";
 		};
-		0C2D0CC8291EA23D0096284F /* Scripts */ = {
+		0C2D0CDB2920D8A80096284F /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 				0C2D0CC9291EA2480096284F /* check_provisioning_expiry.sh */,
-			);
-			path = Scripts;
-			sourceTree = "<group>";
-		};
-		0C2D0CDB2920D8A80096284F /* Test */ = {
-			isa = PBXGroup;
-			children = (
 				0C2D0CDC2920D8C30096284F /* test.cer */,
 			);
-			path = Test;
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		5FECAE08AD2849B256CA5FEA /* Pods */ = {
