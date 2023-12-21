@@ -1,4 +1,4 @@
-framework module ASN1Decoder {
+module ASN1Decoder {
   umbrella header "ASN1Decoder-umbrella.h"
 
   export *

@@ -1,4 +1,4 @@
-framework module PathKit {
+module PathKit {
   umbrella header "PathKit-umbrella.h"
 
   export *

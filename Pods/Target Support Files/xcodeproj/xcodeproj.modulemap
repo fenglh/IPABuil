@@ -1,4 +1,4 @@
-framework module XcodeProj {
+module XcodeProj {
   umbrella header "xcodeproj-umbrella.h"
 
   export *

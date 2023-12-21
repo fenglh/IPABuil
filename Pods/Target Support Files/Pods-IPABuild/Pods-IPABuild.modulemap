@@ -1,4 +1,4 @@
-framework module Pods_IPABuild {
+module Pods_IPABuild {
   umbrella header "Pods-IPABuild-umbrella.h"
 
   export *

@@ -61,12 +61,17 @@ guard CommandLine.arguments.count >= 2 else {
 
 let projectPath = Path(CommandLine.arguments[1])
 
-do {
-    let builder = try IPABuild(path: projectPath)
-    try builder.build(scheme: "Ahleen", method: .adHoc, platform: .iOS)
-}catch {
-    print(error)
-}
+//do {
+//    let builder = try IPABuild(path: projectPath)
+////    try builder.build(scheme: "Tertian", method: .development, platform: .iOS)
+//    try builder.export(withArchivePath: Path("/Users/fenglh/flat/code/Tertian/ipabuild/Tertian.xcarchive"), optionsPath: Path("/Users/fenglh/flat/code/Tertian/ipabuild/exportOptionals.plist"), exportPath: Path("/Users/fenglh/Downloads"))
+//}catch {
+//    print(error)
+//}
+
+
+
+SFTP.uploadFile(file: nil)
 
 
 

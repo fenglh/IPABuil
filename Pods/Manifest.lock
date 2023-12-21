@@ -2,6 +2,7 @@ PODS:
   - AEXML (4.6.1)
   - ASN1Decoder (1.8.0)
   - KeychainAccess (4.2.2)
+  - NMSSH-riden (2.7.2)
   - PathKit (1.0.1)
   - xcodeproj (8.8.0):
     - AEXML (~> 4.6.1)
@@ -10,6 +11,7 @@ PODS:
 DEPENDENCIES:
   - ASN1Decoder (~> 1.8.0)
   - KeychainAccess
+  - NMSSH-riden (~> 2.7.2)
   - xcodeproj (~> 8.8.0)
 
 SPEC REPOS:
@@ -17,6 +19,7 @@ SPEC REPOS:
     - AEXML
     - ASN1Decoder
     - KeychainAccess
+    - NMSSH-riden
     - PathKit
     - xcodeproj
 
@@ -24,9 +27,10 @@ SPEC CHECKSUMS:
   AEXML: 1e255ecc6597212f97a7454a69ebd3ede64ac1cf
   ASN1Decoder: 6110fdeacfdb41559b1481457a1645be716610aa
   KeychainAccess: c0c4f7f38f6fc7bbe58f5702e25f7bd2f65abf51
+  NMSSH-riden: 2b467515d3ce398663747e4ad165534947f18b97
   PathKit: 83b97c9c61b62e61ecafd598b33b2782575c33e4
   xcodeproj: 385cccbf342da6a3f8bd2019f7bad8bf235994e9
 
-PODFILE CHECKSUM: 19ff409fe4d62988f2aceeca40566339da1952cd
+PODFILE CHECKSUM: fdaf0919e2aff4f4d058a100486429b67dd84813
 
-COCOAPODS: 1.11.3
+COCOAPODS: 1.12.0

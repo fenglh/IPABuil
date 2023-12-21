@@ -1,15 +1,16 @@
 ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES
 CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO
-FRAMEWORK_SEARCH_PATHS = $(inherited) "${PODS_CONFIGURATION_BUILD_DIR}/AEXML" "${PODS_CONFIGURATION_BUILD_DIR}/ASN1Decoder" "${PODS_CONFIGURATION_BUILD_DIR}/KeychainAccess" "${PODS_CONFIGURATION_BUILD_DIR}/PathKit" "${PODS_CONFIGURATION_BUILD_DIR}/xcodeproj"
+EXCLUDED_ARCHS[sdk=iphonesimulator*] = arm64
 GCC_PREPROCESSOR_DEFINITIONS = $(inherited) COCOAPODS=1
-HEADER_SEARCH_PATHS = $(inherited) "${PODS_CONFIGURATION_BUILD_DIR}/AEXML/AEXML.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/ASN1Decoder/ASN1Decoder.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/KeychainAccess/KeychainAccess.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/PathKit/PathKit.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/xcodeproj/XcodeProj.framework/Headers"
-LD_RUNPATH_SEARCH_PATHS = $(inherited) /usr/lib/swift '@executable_path/../Frameworks' '@loader_path/Frameworks' "${DT_TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}"
-LIBRARY_SEARCH_PATHS = $(inherited) "${DT_TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}" /usr/lib/swift
-OTHER_LDFLAGS = $(inherited) -framework "AEXML" -framework "ASN1Decoder" -framework "Foundation" -framework "KeychainAccess" -framework "PathKit" -framework "XcodeProj"
-OTHER_SWIFT_FLAGS = $(inherited) -D COCOAPODS
+HEADER_SEARCH_PATHS = $(inherited) "${PODS_ROOT}/Headers/Public" "${PODS_ROOT}/Headers/Public/NMSSH-riden"
+LIBRARY_SEARCH_PATHS = $(inherited) "${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}" "${PODS_CONFIGURATION_BUILD_DIR}/AEXML" "${PODS_CONFIGURATION_BUILD_DIR}/ASN1Decoder" "${PODS_CONFIGURATION_BUILD_DIR}/KeychainAccess" "${PODS_CONFIGURATION_BUILD_DIR}/NMSSH-riden" "${PODS_CONFIGURATION_BUILD_DIR}/PathKit" "${PODS_CONFIGURATION_BUILD_DIR}/xcodeproj" "${PODS_ROOT}/NMSSH-riden/NMSSH-OSX/Libraries/lib" /usr/lib/swift
+OTHER_CFLAGS = $(inherited) -fmodule-map-file="${PODS_CONFIGURATION_BUILD_DIR}/AEXML/AEXML.modulemap" -fmodule-map-file="${PODS_CONFIGURATION_BUILD_DIR}/ASN1Decoder/ASN1Decoder.modulemap" -fmodule-map-file="${PODS_CONFIGURATION_BUILD_DIR}/KeychainAccess/KeychainAccess.modulemap" -fmodule-map-file="${PODS_CONFIGURATION_BUILD_DIR}/PathKit/PathKit.modulemap" -fmodule-map-file="${PODS_CONFIGURATION_BUILD_DIR}/xcodeproj/XcodeProj.modulemap" -fmodule-map-file="${PODS_ROOT}/Headers/Public/NMSSH_riden/NMSSH-riden.modulemap"
+OTHER_LDFLAGS = $(inherited) -ObjC -l"AEXML" -l"ASN1Decoder" -l"KeychainAccess" -l"NMSSH-riden" -l"PathKit" -l"crypto" -l"ssh2" -l"ssl" -l"xcodeproj" -l"z" -framework "CFNetwork" -framework "Foundation"
+OTHER_SWIFT_FLAGS = $(inherited) -D COCOAPODS -Xcc -fmodule-map-file="${PODS_CONFIGURATION_BUILD_DIR}/AEXML/AEXML.modulemap" -Xcc -fmodule-map-file="${PODS_CONFIGURATION_BUILD_DIR}/ASN1Decoder/ASN1Decoder.modulemap" -Xcc -fmodule-map-file="${PODS_CONFIGURATION_BUILD_DIR}/KeychainAccess/KeychainAccess.modulemap" -Xcc -fmodule-map-file="${PODS_CONFIGURATION_BUILD_DIR}/PathKit/PathKit.modulemap" -Xcc -fmodule-map-file="${PODS_CONFIGURATION_BUILD_DIR}/xcodeproj/XcodeProj.modulemap" -Xcc -fmodule-map-file="${PODS_ROOT}/Headers/Public/NMSSH_riden/NMSSH-riden.modulemap"
 PODS_BUILD_DIR = ${BUILD_DIR}
 PODS_CONFIGURATION_BUILD_DIR = ${PODS_BUILD_DIR}/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)
 PODS_PODFILE_DIR_PATH = ${SRCROOT}/.
 PODS_ROOT = ${SRCROOT}/Pods
 PODS_XCFRAMEWORKS_BUILD_DIR = $(PODS_CONFIGURATION_BUILD_DIR)/XCFrameworkIntermediates
+SWIFT_INCLUDE_PATHS = $(inherited) "${PODS_CONFIGURATION_BUILD_DIR}/AEXML" "${PODS_CONFIGURATION_BUILD_DIR}/ASN1Decoder" "${PODS_CONFIGURATION_BUILD_DIR}/KeychainAccess" "${PODS_CONFIGURATION_BUILD_DIR}/PathKit" "${PODS_CONFIGURATION_BUILD_DIR}/xcodeproj"
 USE_RECURSIVE_SCRIPT_INPUTS_IN_SCRIPT_PHASES = YES

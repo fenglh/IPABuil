@@ -18,11 +18,12 @@
 		0C6378E4293056FE0080CAFD /* PBXNativeTarget+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C6378E3293056FE0080CAFD /* PBXNativeTarget+Extension.swift */; };
 		0C6378E6293057370080CAFD /* XcodeProj+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C6378E5293057370080CAFD /* XcodeProj+Extension.swift */; };
 		0C6378E82930577B0080CAFD /* enum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C6378E72930577B0080CAFD /* enum.swift */; };
+		0CA65D942B33D91000903047 /* SFTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CA65D932B33D91000903047 /* SFTP.swift */; };
 		0CB18F5B2937B22B00C58AAD /* ExportOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */; };
 		0CCC20F32937A73D00B9EA88 /* Entitlements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC20F12937A73D00B9EA88 /* Entitlements.swift */; };
 		0CCC20F62937AD9800B9EA88 /* Destination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC20F52937AD9800B9EA88 /* Destination.swift */; };
 		0CF298762933417400120FEE /* ShellOut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF298752933417400120FEE /* ShellOut.swift */; };
-		D215567F4477681728587836 /* Pods_IPABuild.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EA71BCF63B07FE39CA036812 /* Pods_IPABuild.framework */; };
+		37B13C3D82639D4E62D45A13 /* libPods-IPABuild.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 535AFDC9F9BFB6DCDDC5EF28 /* libPods-IPABuild.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -54,13 +55,14 @@
 		0C6378E3293056FE0080CAFD /* PBXNativeTarget+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PBXNativeTarget+Extension.swift"; sourceTree = "<group>"; };
 		0C6378E5293057370080CAFD /* XcodeProj+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XcodeProj+Extension.swift"; sourceTree = "<group>"; };
 		0C6378E72930577B0080CAFD /* enum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = enum.swift; sourceTree = "<group>"; };
+		0CA65D932B33D91000903047 /* SFTP.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SFTP.swift; sourceTree = "<group>"; };
 		0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportOptions.swift; sourceTree = "<group>"; };
 		0CCC20F12937A73D00B9EA88 /* Entitlements.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Entitlements.swift; sourceTree = "<group>"; };
 		0CCC20F52937AD9800B9EA88 /* Destination.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Destination.swift; sourceTree = "<group>"; };
 		0CF298752933417400120FEE /* ShellOut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellOut.swift; sourceTree = "<group>"; };
+		535AFDC9F9BFB6DCDDC5EF28 /* libPods-IPABuild.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-IPABuild.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B7BAFA25020E96481CE904ED /* Pods-IPABuild.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IPABuild.release.xcconfig"; path = "Target Support Files/Pods-IPABuild/Pods-IPABuild.release.xcconfig"; sourceTree = "<group>"; };
 		D2773D46CE385A30239B7D5B /* Pods-IPABuild.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IPABuild.debug.xcconfig"; path = "Target Support Files/Pods-IPABuild/Pods-IPABuild.debug.xcconfig"; sourceTree = "<group>"; };
-		EA71BCF63B07FE39CA036812 /* Pods_IPABuild.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_IPABuild.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -68,7 +70,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D215567F4477681728587836 /* Pods_IPABuild.framework in Frameworks */,
+				37B13C3D82639D4E62D45A13 /* libPods-IPABuild.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -96,6 +98,7 @@
 		0C2D0C9A291E555A0096284F /* IPABuild */ = {
 			isa = PBXGroup;
 			children = (
+				0CA65D932B33D91000903047 /* SFTP.swift */,
 				0C2D0CDB2920D8A80096284F /* Test */,
 				0C2D0CBE291EA20E0096284F /* ProvisioningProfile */,
 				0C2D0C9B291E555A0096284F /* main.swift */,
@@ -155,7 +158,7 @@
 			children = (
 				0C2D0CD2291F97320096284F /* OpenSSL.xcframework */,
 				0C2D0CBA291E6AF10096284F /* Accessibility.framework */,
-				EA71BCF63B07FE39CA036812 /* Pods_IPABuild.framework */,
+				535AFDC9F9BFB6DCDDC5EF28 /* libPods-IPABuild.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -246,6 +249,7 @@
 			files = (
 				0CF298762933417400120FEE /* ShellOut.swift in Sources */,
 				0C2D0C9C291E555A0096284F /* main.swift in Sources */,
+				0CA65D942B33D91000903047 /* SFTP.swift in Sources */,
 				0C2D0CCF291EB1AB0096284F /* MobileProvision.swift in Sources */,
 				0C3D98EB29324CF100C3FD9C /* XCConfig+Extension.swift in Sources */,
 				0C6378E6293057370080CAFD /* XcodeProj+Extension.swift in Sources */,

@@ -1,4 +1,4 @@
-framework module AEXML {
+module AEXML {
   umbrella header "AEXML-umbrella.h"
 
   export *

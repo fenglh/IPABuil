@@ -146,6 +146,7 @@ class IPABuild {
         var archiveSucceed = false
         try shellOut(to: cmd) {
             print($0)
+            
             if $0.contains("** ARCHIVE SUCCEEDED **") {
                 archiveSucceed = true
             }
@@ -161,17 +162,23 @@ class IPABuild {
                                         teamID: mobileProvision.teamIdentifier.first)
             
             try options.writeToPath(path: exportOptionalsPath.url)
-            try export(withArchivePath: archivePath, exportOptionsPath: exportOptionalsPath)
+            
+            try export(withArchivePath: archivePath, optionsPath: exportOptionalsPath, exportPath: exportPath)
         }
     }
     
     
-    func export(withArchivePath archivePath: Path, exportOptionsPath: Path) throws {
+    func export(withArchivePath archivePath: Path, optionsPath: Path, exportPath: Path) throws {
+        
+        guard archivePath.exists else { print("\(archivePath) 路径不存在"); return }
+        guard optionsPath.exists else { print("\(optionsPath) 路径不存在"); return }
+        guard exportPath.exists else { print("\(exportPath) 路径不存在"); return }
+        
         var args = [String]()
         args.append("xcodebuild -exportArchive")
         args.append("-archivePath \(archivePath.string)")
         args.append("-exportPath \(exportPath.string)")
-        args.append("-exportOptionsPlist \(exportOptionsPath.string)")
+        args.append("-exportOptionsPlist \(optionsPath.string)")
         let cmdString = args.joined(separator: " ")
         print(cmdString)
         let cmd = ShellOutCommand(string: cmdString)

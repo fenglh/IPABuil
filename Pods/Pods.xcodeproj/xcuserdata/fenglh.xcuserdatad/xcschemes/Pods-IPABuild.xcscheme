@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1300"
+   LastUpgradeVersion = "1500"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "E002377354203A1BBB93EFC3B4E96DF3"
-               BuildableName = "Pods_IPABuild.framework"
+               BuildableName = "libPods-IPABuild.a"
                BlueprintName = "Pods-IPABuild"
                ReferencedContainer = "container:Pods.xcodeproj">
             </BuildableReference>
