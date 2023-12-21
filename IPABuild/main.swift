@@ -64,10 +64,13 @@ let projectPath = Path(CommandLine.arguments[1])
 do {
     let builder = try IPABuild(path: projectPath)
     let method = ExportOptions.Method.adHoc
-    let platform = Platform.iOS
     let scheme = "Tertian"
     
-    try builder.build(scheme: scheme, method: method)
+//    try builder.clean()
+    try builder.run(scheme: scheme, method: method)
+    
+    
+//    try builder.build(scheme: scheme, method: method)
 //    try builder.export(withArchivePath: Path("/Users/fenglh/flat/code/Tertian/ipabuild/Tertian.xcarchive"), optionsPath: Path("/Users/fenglh/flat/code/Tertian/ipabuild/exportOptionals.plist"), exportPath: Path("/Users/fenglh/Downloads"))
 }catch {
     print(error)

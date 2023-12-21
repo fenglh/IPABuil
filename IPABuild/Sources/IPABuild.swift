@@ -5,11 +5,12 @@
 //  Created by fenglh on 2022/11/11.
 //
 
+import ASN1Decoder
 import Foundation
 import PathKit
 import XcodeProj
 
-enum IPABuildError: Error, CustomStringConvertible {
+enum BuildError: Error, CustomStringConvertible {
     case notFound(path: Path)
     case pbxprojNotFound(path: Path)
     case xcworkspaceNotFound(path: Path)
@@ -63,6 +64,19 @@ enum IPABuildError: Error, CustomStringConvertible {
     }
 }
 
+struct BuildParams {
+    var bundleId: String
+    var scheme: String
+    var method: ExportOptions.Method
+    var teamId: String
+    var type: ConfigurationType
+    var mobileProvisionUUID: String
+    var certificateName: String
+    var platform: Platform = .iOS
+    var projectVersion: String?
+    var marketingVersion: String?
+}
+
 class IPABuild {
     var projectPath: Path
     var xcodeproj: XcodeProj
@@ -72,118 +86,90 @@ class IPABuild {
         xcodeproj = try XcodeProj(path: path)
     }
     
-    public func build(scheme name: String,
-                      type: ConfigurationType = .release,
-                      method: ExportOptions.Method = .development,
-                      platform: Platform = .iOS) throws
-    {
-        guard supportedMethod(method: method) else {
-            throw IPABuildError.invalidMethod(method: method)
+    public func run(scheme: String, method: ExportOptions.Method) throws {
+        
+        try buildPath.delete()
+        
+        if !buildPath.exists {
+            try buildPath.mkdir()
         }
         
-        guard let schemes = xcodeproj.sharedData?.schemes,
-              let scheme = schemes.first(where: {
-                  $0.name == name
-              })
-        else {
-            throw IPABuildError.schemeNotFound(name: name, schemes: xcodeproj.sharedData?.schemes)
-        }
-        
-        guard let entry = scheme.buildAction?.buildActionEntries.first(where: { $0.buildFor.contains(.archiving) && xcodeproj.pbxproj.nativeTargets.compactMap { $0.name
-        }.contains($0.buildableReference.blueprintName)
-        }) else {
-            throw IPABuildError.schemeNotBuildForArchiving(scheme: scheme)
-        }
-        
-        let targetName = entry.buildableReference.blueprintName
-
-        guard let target = xcodeproj.pbxproj.nativeTargets.first(where: { $0.name == targetName }) else {
-            throw IPABuildError.targetNotFound(name: targetName, scheme: scheme)
-        }
-        
-        guard let bundleId = target.buildConfiguration(with: type)?.bundleId else {
-            throw IPABuildError.bundleIdNotFound(name: targetName)
-        }
-        
-        guard let mobileProvision = findValidMobileProvision(withBundleId: bundleId, method: method, platform: platform) else {
-            throw IPABuildError.mobileProvisionNotFound(bundleId: bundleId, target: target)
-        }
-        
-        guard let teamID = mobileProvision.teamIdentifier.first else {
-            throw IPABuildError.teamIDNotFound(mobileProvision: mobileProvision)
-        }
-        
-        guard let certificate = mobileProvision.validDeveloperX509Certificates.first,
-              let certificateName = certificate.subjectCommonNames?.first
-        else {
-            throw IPABuildError.certificateNotFound(mobileProvision: mobileProvision)
-        }
-                
-        let archivePath = archivePath(withName: name)
-        var args = [String]()
-        args.append("xcodebuild archive")
-        let destination = Destination.generic(platform: .iOS)
-        args.append("-destination '\(destination.argument)'")
-        if let xcworkspacePath = xcworkspacePath, xcworkspacePath.exists {
-            args.append("-workspace \(xcworkspacePath.string)")
-        }
-        args.append("-scheme \(name)")
-        args.append("-archivePath \(archivePath.string)")
-        args.append("-configuration \(type.rawValue)")
-        args.append("CODE_SIGN_STYLE=\(CodeSignStyle.Manual.rawValue)")
-        args.append("PROVISIONING_PROFILE='\(mobileProvision.uuid)'")
-        args.append("PROVISIONING_PROFILE_SPECIFIER='\(mobileProvision.uuid)'")
-        args.append("DEVELOPMENT_TEAM=\(teamID)")
-        args.append("CODE_SIGN_IDENTITY='\(certificateName)'")
-        // Adding CODE_SIGNING_REQUIRED=Yes and CODE_SIGNING_ALLOWED=No because of this answer:
-        // https://forums.swift.org/t/xcode-14-beta-code-signing-issues-when-spm-targets-include-resources/59685/17
-        // https://blog.codemagic.io/code-signing-issues-in-xcode-14-and-how-to-fix-them/
-        args.append("CODE_SIGNING_REQUIRED=YES")
-        args.append("CODE_SIGNING_ALLOWED=NO")
-        args.append("clean")
-        args.append("build")
-        let cmdString = args.joined(separator: " ")
-        let cmd = ShellOutCommand(string: cmdString)
-        var archiveSucceed = false
-        try shellOut(to: cmd) {
-            print($0)
-            
-            if $0.contains("** ARCHIVE SUCCEEDED **") {
-                archiveSucceed = true
+        let result = try makeBuildParams(scheme: scheme, method: method)
+        switch result {
+        case let .failure(err):
+            print("❌❌❌构建失败：\(err.description)")
+        case let .success(params):
+            var name = params.scheme
+            if let marketingVersion = params.marketingVersion {
+                name += "-\(marketingVersion)"
+                if let projectVersion = params.projectVersion {
+                    name += "[\(projectVersion)]"
+                }
             }
-        }
-        
-        if archiveSucceed {
-            print("** ARCHIVE SUCCEEDED **")
-            // TODO: provisioningProfiles 添加Extension的bundleId和uuid
-            // TODO: 根据描述文件动态配置method
-            let options = ExportOptions(method: method,
-                                        export: .nonAppStore(),
-                                        signing: .manual(provisioningProfiles: [bundleId: mobileProvision.uuid]),
-                                        teamID: mobileProvision.teamIdentifier.first)
+            let time = Date().timeIntervalSince1970.toInt64 ?? 0
+            name += "-\(time)"
+
             
-            try options.writeToPath(path: exportOptionalsPath.url)
-            try exportIPA(with: archivePath, optionsPath: exportOptionalsPath, exportPath: exportPath)
+            let archviePath = buildPath + "\(name).xcarchive"
+            let buildCMD = makeBuildCMD(with: params, archivePath: archviePath.string)
+            guard let buildCMD else {
+                print("❌❌❌ buildCMD 生成失败！")
+                return
+            }
+            // 开始构建
+            var ret = false
+            try shellOut(to: ShellOutCommand(string: buildCMD)) {
+                print($0)
+                if $0.contains("** ARCHIVE SUCCEEDED **") {
+                    ret = true
+                } else if $0.contains("** ARCHIVE FAILED **") {
+                    ret = true
+                }
+            }
+            
+            guard ret, archviePath.exists else {
+                print("❌❌❌ Archive 失败：\(archviePath)")
+                return
+            }
+            
+            print("✅✅✅ Archive 成功：\(archviePath)")
+            
+            let exportPlistPath = buildPath + "exportOptions.plist"
+            
+            try makeExportPlist(bundleId: params.bundleId, teamId: params.teamId, mobileProvisionUUID: params.mobileProvisionUUID, method: params.method, outputPath: exportPlistPath)
+            guard exportPlistPath.exists else {
+                print("❌❌❌ exportPlist 生成失败！")
+                return
+            }
+            print("✅✅✅ exportPlist 生成成功！")
+            
+            
+            let exportIPACmd = makeExportIPACMD(archivePath: archviePath, plistPath: exportPlistPath, outputPath: buildPath)
+            
+            guard let exportIPACmd else {
+                print("❌❌❌ exportIPACmd 生成失败！")
+                return
+            }
+            
+            
+            try shellOut(to: ShellOutCommand(string: exportIPACmd)) {
+                print($0)
+                if $0.contains("** EXPORT SUCCEEDED **") {
+                    ret = true
+                } else if $0.contains("** EXPORT FAILED **") {
+                    ret = true
+                }
+            }
+            
+        
+            print("✅✅✅ export IPA 结束")
+
         }
     }
     
-    func exportIPA(with archivePath: Path, optionsPath: Path, exportPath: Path) throws {
-        guard archivePath.exists else { print("\(archivePath) 路径不存在"); return }
-        guard optionsPath.exists else { print("\(optionsPath) 路径不存在"); return }
-        guard exportPath.exists else { print("\(exportPath) 路径不存在"); return }
-        
-        var args = [String]()
-        args.append("xcodebuild -exportArchive")
-        args.append("-archivePath \(archivePath.string)")
-        args.append("-exportPath \(exportPath.string)")
-        args.append("-exportOptionsPlist \(optionsPath.string)")
-        let cmdString = args.joined(separator: " ")
-        print(cmdString)
-        let cmd = ShellOutCommand(string: cmdString)
-        try shellOut(to: cmd) {
-            print($0)
-        }
-        print("** EXPORT FINISHED **")
+    
+    func clean() throws {
+        try FileManager.default.removeItem(atPath: buildPath.string)
     }
 }
 
@@ -199,25 +185,13 @@ extension IPABuild {
         return rootPath + "ipabuild"
     }
     
-    var exportOptionalsPath: Path {
-        return buildPath + "exportOptionals.plist"
-    }
-    
-    var exportPath: Path {
-        return buildPath
-    }
-    
     var xcworkspacePath: Path? {
         return rootPath.glob("*.xcworkspace").first
     }
     
-    func archivePath(withName name: String) -> Path {
-        return buildPath + "\(name).xcarchive"
-    }
-    
-    func findValidMobileProvision(withBundleId bundleId: String,
-                                  method: ExportOptions.Method,
-                                  platform: Platform) -> MobileProvision?
+    private func findValidMobileProvision(withBundleId bundleId: String,
+                                          method: ExportOptions.Method,
+                                          platform: Platform) -> MobileProvision?
     {
         let mobileProvisions = MobileProvision.defaultMobileProvisions()
         var lastestMobileProvision: MobileProvision?
@@ -238,10 +212,104 @@ extension IPABuild {
         return lastestMobileProvision
     }
     
-    func supportedMethod(method: ExportOptions.Method) -> Bool {
-        method == .appStore
-            || method == .development
-            || method == .adHoc
-            || method == .enterprise
+    private func makeBuildParams(scheme name: String,
+                                 method: ExportOptions.Method,
+                                 type: ConfigurationType = .release,
+                                 platform: Platform = .iOS) throws -> Result<BuildParams, BuildError>
+    {
+        guard let schemes = xcodeproj.sharedData?.schemes,
+              let scheme = schemes.first(where: {
+                  $0.name == name
+              })
+        else {
+            return .failure(.schemeNotFound(name: name, schemes: xcodeproj.sharedData?.schemes))
+        }
+        
+        guard let entry = scheme.buildAction?.buildActionEntries.first(where: { $0.buildFor.contains(.archiving) && xcodeproj.pbxproj.nativeTargets.compactMap { $0.name
+        }.contains($0.buildableReference.blueprintName)
+        }) else {
+            return .failure(.schemeNotBuildForArchiving(scheme: scheme))
+        }
+        
+        let targetName = entry.buildableReference.blueprintName
+
+        guard let target = xcodeproj.pbxproj.nativeTargets.first(where: { $0.name == targetName }) else {
+            return .failure(.targetNotFound(name: targetName, scheme: scheme))
+        }
+        
+        guard let bundleId = target.buildConfiguration(with: type)?.bundleId else {
+            return .failure(.bundleIdNotFound(name: targetName))
+        }
+        
+        guard let mobileProvision = findValidMobileProvision(withBundleId: bundleId, method: method, platform: platform) else {
+            return .failure(.mobileProvisionNotFound(bundleId: bundleId, target: target))
+        }
+        
+        guard let teamId = mobileProvision.teamIdentifier.first else {
+            return .failure(.teamIDNotFound(mobileProvision: mobileProvision))
+        }
+        
+        guard let certificate = mobileProvision.validDeveloperX509Certificates.first,
+              let certificateName = certificate.subjectCommonNames?.first
+        else {
+            return .failure(.certificateNotFound(mobileProvision: mobileProvision))
+        }
+        
+        var result = BuildParams(bundleId: bundleId, scheme: name, method: method, teamId: teamId, type: type, mobileProvisionUUID: mobileProvision.uuid, certificateName: certificateName)
+        result.marketingVersion = target.buildConfiguration(with: type)?.marketingVersion
+        result.projectVersion = target.buildConfiguration(with: type)?.currentProjectVersion
+        return .success(result)
     }
+    
+    private func makeBuildCMD(with params: BuildParams,
+                              archivePath: String) -> String?
+    {
+        var args = [String]()
+        args.append("xcodebuild archive")
+        let destination = Destination.generic(platform: .iOS)
+        args.append("-destination '\(destination.argument)'")
+        if let xcworkspacePath = xcworkspacePath, xcworkspacePath.exists {
+            args.append("-workspace \(xcworkspacePath.string)")
+        }
+        args.append("-scheme \(params.scheme)")
+        args.append("-archivePath \(archivePath)")
+        args.append("-configuration \(params.type.rawValue)")
+        args.append("CODE_SIGN_STYLE=\(CodeSignStyle.Manual.rawValue)")
+        args.append("PROVISIONING_PROFILE='\(params.mobileProvisionUUID)'")
+        args.append("PROVISIONING_PROFILE_SPECIFIER='\(params.mobileProvisionUUID)'")
+        args.append("DEVELOPMENT_TEAM=\(params.teamId)")
+        args.append("CODE_SIGN_IDENTITY='\(params.certificateName)'")
+        // Adding CODE_SIGNING_REQUIRED=Yes and CODE_SIGNING_ALLOWED=No because of this answer:
+        // https://forums.swift.org/t/xcode-14-beta-code-signing-issues-when-spm-targets-include-resources/59685/17
+        // https://blog.codemagic.io/code-signing-issues-in-xcode-14-and-how-to-fix-them/
+        args.append("CODE_SIGNING_REQUIRED=YES")
+        args.append("CODE_SIGNING_ALLOWED=NO")
+        args.append("clean")
+        args.append("build")
+        return args.joined(separator: " ")
+    }
+    
+    private func makeExportPlist(bundleId: String,
+                                 teamId: String,
+                                 mobileProvisionUUID: String,
+                                 method: ExportOptions.Method,
+                                 exportConfig: ExportOptions.Export = .nonAppStore(), outputPath: Path) throws
+    {
+        // TODO: provisioningProfiles 添加Extension的bundleId和uuid
+        let options = ExportOptions(method: method,
+                                    export: exportConfig,
+                                    signing: .manual(provisioningProfiles: [bundleId: mobileProvisionUUID]),
+                                    teamID: teamId)
+        try options.writeToPath(path: outputPath.url)
+    }
+    
+    private func makeExportIPACMD(archivePath: Path, plistPath: Path, outputPath: Path) -> String? {
+        var args = [String]()
+        args.append("xcodebuild -exportArchive")
+        args.append("-archivePath \(archivePath.string)")
+        args.append("-exportPath \(outputPath.string)")
+        args.append("-exportOptionsPlist \(plistPath.string)")
+        return args.joined(separator: " ")
+    }
+    
 }

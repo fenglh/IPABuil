@@ -20,6 +20,7 @@
 		0C6378E82930577B0080CAFD /* enum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C6378E72930577B0080CAFD /* enum.swift */; };
 		0CA65D942B33D91000903047 /* SFTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CA65D932B33D91000903047 /* SFTP.swift */; };
 		0CA7BE432B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CA7BE422B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift */; };
+		0CA7BE462B3425B3000A3441 /* TimeInterval+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CA7BE452B3425B3000A3441 /* TimeInterval+Extension.swift */; };
 		0CB18F5B2937B22B00C58AAD /* ExportOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */; };
 		0CCC20F32937A73D00B9EA88 /* Entitlements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC20F12937A73D00B9EA88 /* Entitlements.swift */; };
 		0CCC20F62937AD9800B9EA88 /* Destination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC20F52937AD9800B9EA88 /* Destination.swift */; };
@@ -58,6 +59,7 @@
 		0C6378E72930577B0080CAFD /* enum.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = enum.swift; sourceTree = "<group>"; };
 		0CA65D932B33D91000903047 /* SFTP.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SFTP.swift; sourceTree = "<group>"; };
 		0CA7BE422B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCBuildConfiguration+Extension.swift"; sourceTree = "<group>"; };
+		0CA7BE452B3425B3000A3441 /* TimeInterval+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TimeInterval+Extension.swift"; sourceTree = "<group>"; };
 		0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportOptions.swift; sourceTree = "<group>"; };
 		0CCC20F12937A73D00B9EA88 /* Entitlements.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Entitlements.swift; sourceTree = "<group>"; };
 		0CCC20F52937AD9800B9EA88 /* Destination.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Destination.swift; sourceTree = "<group>"; };
@@ -143,6 +145,7 @@
 				0C2D0CDD292159970096284F /* Data+Extension.swift */,
 				0C3D98EA29324CF100C3FD9C /* XCConfig+Extension.swift */,
 				0CA7BE422B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift */,
+				0CA7BE452B3425B3000A3441 /* TimeInterval+Extension.swift */,
 			);
 			path = Extension;
 			sourceTree = "<group>";
@@ -267,6 +270,7 @@
 				0C6378E4293056FE0080CAFD /* PBXNativeTarget+Extension.swift in Sources */,
 				0CCC20F32937A73D00B9EA88 /* Entitlements.swift in Sources */,
 				0C2D0CDE292159970096284F /* Data+Extension.swift in Sources */,
+				0CA7BE462B3425B3000A3441 /* TimeInterval+Extension.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

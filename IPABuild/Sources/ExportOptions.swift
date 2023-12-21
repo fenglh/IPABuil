@@ -47,16 +47,16 @@ public struct ExportOptions: Encodable {
         }
     }
 
-    public enum Method: String, Encodable {
+    public enum Method: String, Encodable, CaseIterable {
         case unknow
+        case development
         case adHoc = "ad-hoc"
         case appStore = "app-store"
-        case developerID = "developer-id"
-        case development
+//        case developerID = "developer-id"
         case enterprise
-        case macApplication = "mac-application"
-        case package
-        case validation
+//        case macApplication = "mac-application"
+//        case package
+//        case validation
     }
 
     public enum SigningStyle: String, Encodable {
@@ -308,7 +308,7 @@ extension ExportOptions {
         
         case nonAppStore(
             manifest: Manifest? = nil,
-            compileBitcode: Bool = true,
+            compileBitcode: Bool = false,
             onDemandResources: OnDemandResources? = nil,
             thinning: Thinning = .thinForAllVariants
         )
