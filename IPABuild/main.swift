@@ -4,13 +4,13 @@
 //
 //  Created by fenglh on 2022/11/11.
 //
-//https://www.testdevlab.com/blog/xcode-provisioning-profile-automation-for-ci
+// https://www.testdevlab.com/blog/xcode-provisioning-profile-automation-for-ci
 
-import Foundation
-import XcodeProj
-import PathKit
 import ASN1Decoder
+import Foundation
 import KeychainAccess
+import PathKit
+import XcodeProj
 
 /// 证书的生成和使用过程：
 /// 1. 本地生成：【公钥L】、【私钥L】
@@ -32,14 +32,12 @@ import KeychainAccess
 /// 检查IPA的签名：
 /// codesign --verify Example.app
 
-
 struct CertificateFilter {
     // 有私钥
     let withPrivateKey: Bool = true
     // 有签发者名字
     let withIssuerOrgNames: [String] = [IssuerOrganizationName.appleInc]
 }
-
 
 let keychain: Keychain = .login
 
@@ -52,16 +50,12 @@ let certificateNamesWithPrivateKey = X509Certificate.findCertificateNamesWithPri
 /// 过滤器
 let filter = CertificateFilter()
 
-
-
-//mobileProvisions.forEach { provision in
+// mobileProvisions.forEach { provision in
 //    print("mobile provision name:\(provision.name)")
-//}
+// }
 
-
-
-certificates?.enumerated().forEach { index, cer in
-
+var index = 1
+certificates?.forEach { cer in
 
     // 证书有效时间
     let daysUntilExpiry = cer.daysUntilExpiry
@@ -74,37 +68,20 @@ certificates?.enumerated().forEach { index, cer in
     if filter.withPrivateKey {
         guard certificateNamesWithPrivateKey.contains(subjectCommonName) else { return }
     }
-    
+
     // 过滤签发者组织
-    if !filter.withIssuerOrgNames.isEmpty {
+    if filter.withIssuerOrgNames.isEmpty == false {
         guard let issuerOrgName = cer.issuerOrganizationName else { return }
         guard filter.withIssuerOrgNames.contains(issuerOrgName) else { return }
     }
     
-
-    print("\(index)【\(subjectCommonName)】有效时间:\(daysUntilExpiry.days) 天 \(daysUntilExpiry.hours) 小时. 签发者:\(issuerOrgName)")
+    let expiryText: String
+    if daysUntilExpiry.days < 0 || daysUntilExpiry.hours < 0 {
+        expiryText = "⚠️已过期"
+    } else {
+        expiryText = "\(daysUntilExpiry.days)天\(daysUntilExpiry.hours)小时"
+    }
+    
+    print("\(index)【\(subjectCommonName)】\(expiryText)")
+    index += 1
 }
-
-
-
-
-//SFTP.uploadFile(file: nil)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
