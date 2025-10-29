@@ -109,4 +109,25 @@ public extension MobileProvision {
             return nil
         }
     }
+    
+    static func findLastestProfile(withBundleId bundleId: String,
+                            method: ExportOptions.Method = .development,
+                            platform: Platform = .iOS
+    ) -> MobileProvision? {
+        let mobileProvisions = MobileProvision.defaultMobileProvisions()
+        var lastestMobileProvision: MobileProvision?
+        for mobileProvision in mobileProvisions {
+            guard mobileProvision.method == method,
+               mobileProvision.canSignBundleIdentifier(bundleId),
+               mobileProvision.platform.contains(platform.rawValue) else {
+                continue
+            }
+            if let expirationDate = lastestMobileProvision?.expirationDate,
+                expirationDate > mobileProvision.expirationDate {
+                continue
+            }
+            lastestMobileProvision = mobileProvision
+        }
+        return lastestMobileProvision
+    }
 }

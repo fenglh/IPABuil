@@ -24,5 +24,13 @@
             </PersistentString>
          </PersistentStrings>
       </ContextState>
+      <ContextState
+         contextName = "closure #1 in :main.swift">
+         <PersistentStrings>
+            <PersistentString
+               value = "sha1ListForCertificatesWithPrivateKey">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
    </ContextStates>
 </VariablesViewState>

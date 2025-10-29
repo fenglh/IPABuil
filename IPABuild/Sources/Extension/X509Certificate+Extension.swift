@@ -9,6 +9,29 @@ import Foundation
 import ASN1Decoder
 import CommonCrypto
 
+enum IssuerOrganizationName {
+    static let appleInc = "Apple Inc."
+    static let veriSignInc = "VeriSign, Inc."
+}
+
+enum Keychain {
+    case `default`
+    case login
+    
+    var dbPath: String {
+        switch self {
+        case .`default`:
+            return ""
+        case .login:
+            return "~/Library/Keychains/login.keychain-db"
+        }
+    }
+}
+
+struct X509CertificateModel {
+    var sha1: String
+    var certificate: X509Certificate
+}
 
 extension X509Certificate {
     
@@ -66,13 +89,53 @@ extension X509Certificate {
         return serialNumber.hexDescription.uppercased()
     }
     
+    /// 剩余有效天数
+    var daysUntilExpiry: (days: Int, hours: Int) {
+        guard let notAfter else { return (0, 0) }
+        let now = Date()
+        return timeBetweenDates(startDate: now, endDate: notAfter)
+    }
 
+ 
+}
 
+private extension X509Certificate {
+    func timeBetweenDates(startDate: Date, endDate: Date) -> (days: Int, hours: Int) {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day, .hour], from: startDate, to: endDate)
+        return (components.day ?? 0, components.hour ?? 0)
+    }
+}
+
+extension X509Certificate {
+    /// 查找登录钥匙串中所有包含私钥的证书，不关心具体用途。
+    /// - Returns: 包含私钥的证书序列号数组
+    static func findCertificateNamesWithPrivateKey(in keychain: Keychain) -> [String] {
+        let cmd = "security find-identity -p basic \(keychain.dbPath)"
+        
+        guard let outputString = try? shellOut(to: cmd) else {
+            return []
+        }
+        
+        // 使用正则表达式匹配证书名称
+        let pattern = "\"([^\"]+)\""
+        let regex = try? NSRegularExpression(pattern: pattern, options: [])
+        let matches = regex?.matches(in: outputString, options: [], range: NSRange(location: 0, length: outputString.count))
+        
+        let certificateNames: [String] = matches?.compactMap { match in
+            guard match.numberOfRanges > 1,
+                  let range = Range(match.range(at: 1), in: outputString) else {
+                return nil
+            }
+            return String(outputString[range])
+        } ?? []
+        
+        return Array(Set(certificateNames)) // 去重并返回
+    }
     
-    //MARK: - Private
-    /// 没有私钥的证书也会被找到
-    func findValidLocalCertificates(withSubjectCommonName subjectCommonName: String) -> [X509Certificate]? {
-        guard let pemsString = try? shellOut(to: "security find-certificate -a -c \"\(subjectCommonName)\" -p") else {
+    static func findCertificates(in keychain: Keychain) -> [X509Certificate]? {
+        
+        guard let pemsString = try? shellOut(to: "security find-certificate -p -a \(keychain.dbPath)") else {
             return nil
         }
         let endPemBlock   = "-----END CERTIFICATE-----"
@@ -84,8 +147,7 @@ extension X509Certificate {
         var certificates = [X509Certificate]()
         for pem in pems {
             guard let pemData = pem.data(using: .ascii),
-                  let certificate = try? X509Certificate(pem: pemData),
-                    certificate.checkValidity() else {
+                  let certificate = try? X509Certificate(pem: pemData) else {
                 continue
             }
             certificates.append(certificate)

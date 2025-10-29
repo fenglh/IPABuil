@@ -33,48 +33,58 @@ import KeychainAccess
 /// codesign --verify Example.app
 
 
-func findLastestProfile(withBundleId bundleId: String,
-                        method: ExportOptions.Method = .development,
-                        platform: Platform = .iOS
-) -> MobileProvision? {
-    let mobileProvisions = MobileProvision.defaultMobileProvisions()
-    var lastestMobileProvision: MobileProvision?
-    for mobileProvision in mobileProvisions {
-        guard mobileProvision.method == method,
-           mobileProvision.canSignBundleIdentifier(bundleId),
-           mobileProvision.platform.contains(platform.rawValue) else {
-            continue
-        }
-        if let expirationDate = lastestMobileProvision?.expirationDate,
-            expirationDate > mobileProvision.expirationDate {
-            continue
-        }
-        lastestMobileProvision = mobileProvision
+struct CertificateFilter {
+    // 有私钥
+    let withPrivateKey: Bool = true
+    // 有签发者名字
+    let withIssuerOrgNames: [String] = [IssuerOrganizationName.appleInc]
+}
+
+
+let keychain: Keychain = .login
+
+let mobileProvisions = MobileProvision.defaultMobileProvisions()
+
+let certificates = X509Certificate.findCertificates(in: keychain)
+
+let certificateNamesWithPrivateKey = X509Certificate.findCertificateNamesWithPrivateKey(in: keychain)
+
+/// 过滤器
+let filter = CertificateFilter()
+
+
+
+//mobileProvisions.forEach { provision in
+//    print("mobile provision name:\(provision.name)")
+//}
+
+
+
+certificates?.enumerated().forEach { index, cer in
+
+
+    // 证书有效时间
+    let daysUntilExpiry = cer.daysUntilExpiry
+    // 主题常用名称
+    guard let subjectCommonName = cer.subjectCommonNames?.first else { return }
+    // 签发者组织
+    guard let issuerOrgName = cer.issuerOrganizationName else { return }
+    
+    // 过滤有私钥的证书
+    if filter.withPrivateKey {
+        guard certificateNamesWithPrivateKey.contains(subjectCommonName) else { return }
     }
-    return lastestMobileProvision
+    
+    // 过滤签发者组织
+    if !filter.withIssuerOrgNames.isEmpty {
+        guard let issuerOrgName = cer.issuerOrganizationName else { return }
+        guard filter.withIssuerOrgNames.contains(issuerOrgName) else { return }
+    }
+    
+
+    print("\(index)【\(subjectCommonName)】有效时间:\(daysUntilExpiry.days) 天 \(daysUntilExpiry.hours) 小时. 签发者:\(issuerOrgName)")
 }
 
-
-guard CommandLine.arguments.count >= 2 else {
-    exit(1)
-}
-
-let projectPath = Path(CommandLine.arguments[1])
-
-do {
-    let builder = try IPABuild(path: projectPath)
-    let method = ExportOptions.Method.adHoc
-    let scheme = "Tertian"
-    
-//    try builder.clean()
-    try builder.run(scheme: scheme, method: method)
-    
-    
-//    try builder.build(scheme: scheme, method: method)
-//    try builder.export(withArchivePath: Path("/Users/fenglh/flat/code/Tertian/ipabuild/Tertian.xcarchive"), optionsPath: Path("/Users/fenglh/flat/code/Tertian/ipabuild/exportOptionals.plist"), exportPath: Path("/Users/fenglh/Downloads"))
-}catch {
-    print(error)
-}
 
 
 
