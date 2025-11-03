@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0C2D0C9C291E555A0096284F /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2D0C9B291E555A0096284F /* main.swift */; };
 		0C2D0CBD291E92290096284F /* IPABuild.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2D0CBC291E92290096284F /* IPABuild.swift */; };
 		0C2D0CCF291EB1AB0096284F /* MobileProvision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2D0CCD291EB1AB0096284F /* MobileProvision.swift */; };
 		0C2D0CD1291EBA360096284F /* MobileProvision+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2D0CD0291EBA360096284F /* MobileProvision+Extension.swift */; };
@@ -22,6 +21,8 @@
 		0CA7BE432B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CA7BE422B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift */; };
 		0CA7BE462B3425B3000A3441 /* TimeInterval+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CA7BE452B3425B3000A3441 /* TimeInterval+Extension.swift */; };
 		0CB18F5B2937B22B00C58AAD /* ExportOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */; };
+		0CB5AC7A2EB91DDA0059CC70 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB5AC782EB91DDA0059CC70 /* ContentView.swift */; };
+		0CB5AC7E2EB91FCE0059CC70 /* IPABuildApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB5AC7D2EB91FCE0059CC70 /* IPABuildApp.swift */; };
 		0CCC20F32937A73D00B9EA88 /* Entitlements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC20F12937A73D00B9EA88 /* Entitlements.swift */; };
 		0CCC20F62937AD9800B9EA88 /* Destination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC20F52937AD9800B9EA88 /* Destination.swift */; };
 		0CF298762933417400120FEE /* ShellOut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF298752933417400120FEE /* ShellOut.swift */; };
@@ -41,7 +42,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0C2D0C98291E555A0096284F /* IPABuild */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = IPABuild; sourceTree = BUILT_PRODUCTS_DIR; };
+		0C2D0C98291E555A0096284F /* IPABuild.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IPABuild.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C2D0C9B291E555A0096284F /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		0C2D0CBA291E6AF10096284F /* Accessibility.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accessibility.framework; path = System/Library/Frameworks/Accessibility.framework; sourceTree = SDKROOT; };
 		0C2D0CBC291E92290096284F /* IPABuild.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPABuild.swift; sourceTree = "<group>"; };
@@ -61,10 +62,13 @@
 		0CA7BE422B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCBuildConfiguration+Extension.swift"; sourceTree = "<group>"; };
 		0CA7BE452B3425B3000A3441 /* TimeInterval+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TimeInterval+Extension.swift"; sourceTree = "<group>"; };
 		0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportOptions.swift; sourceTree = "<group>"; };
+		0CB5AC782EB91DDA0059CC70 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		0CB5AC7D2EB91FCE0059CC70 /* IPABuildApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPABuildApp.swift; sourceTree = "<group>"; };
 		0CCC20F12937A73D00B9EA88 /* Entitlements.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Entitlements.swift; sourceTree = "<group>"; };
 		0CCC20F52937AD9800B9EA88 /* Destination.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Destination.swift; sourceTree = "<group>"; };
 		0CF298752933417400120FEE /* ShellOut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellOut.swift; sourceTree = "<group>"; };
 		535AFDC9F9BFB6DCDDC5EF28 /* libPods-IPABuild.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-IPABuild.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5FD5EC13A365FF7EA967360A /* Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		B7BAFA25020E96481CE904ED /* Pods-IPABuild.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IPABuild.release.xcconfig"; path = "Target Support Files/Pods-IPABuild/Pods-IPABuild.release.xcconfig"; sourceTree = "<group>"; };
 		D2773D46CE385A30239B7D5B /* Pods-IPABuild.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IPABuild.debug.xcconfig"; path = "Target Support Files/Pods-IPABuild/Pods-IPABuild.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -94,7 +98,7 @@
 		0C2D0C99291E555A0096284F /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0C2D0C98291E555A0096284F /* IPABuild */,
+				0C2D0C98291E555A0096284F /* IPABuild.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -102,9 +106,11 @@
 		0C2D0C9A291E555A0096284F /* IPABuild */ = {
 			isa = PBXGroup;
 			children = (
+				0CB5AC7D2EB91FCE0059CC70 /* IPABuildApp.swift */,
 				0C2D0CDB2920D8A80096284F /* Resources */,
 				0C2D0CBE291EA20E0096284F /* Sources */,
 				0C2D0C9B291E555A0096284F /* main.swift */,
+				5FD5EC13A365FF7EA967360A /* Resources/Assets.xcassets */,
 			);
 			path = IPABuild;
 			sourceTree = "<group>";
@@ -112,6 +118,7 @@
 		0C2D0CBE291EA20E0096284F /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				0CB5AC792EB91DDA0059CC70 /* UI */,
 				0CA7BE442B33EECC000A3441 /* Extension */,
 				0CA65D932B33D91000903047 /* SFTP.swift */,
 				0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */,
@@ -150,6 +157,14 @@
 			path = Extension;
 			sourceTree = "<group>";
 		};
+		0CB5AC792EB91DDA0059CC70 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				0CB5AC782EB91DDA0059CC70 /* ContentView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
 		5FECAE08AD2849B256CA5FEA /* Pods */ = {
 			isa = PBXGroup;
 			children = (
@@ -179,6 +194,7 @@
 				71950A59A332415C3512ECF3 /* [CP] Check Pods Manifest.lock */,
 				0C2D0C94291E555A0096284F /* Sources */,
 				0C2D0C95291E555A0096284F /* Frameworks */,
+				4AA2B2C6F3E041A9B6D5DBA1 /* Resources */,
 				0C2D0CD5291F974F0096284F /* CopyFiles */,
 			);
 			buildRules = (
@@ -187,8 +203,8 @@
 			);
 			name = IPABuild;
 			productName = IPABuild;
-			productReference = 0C2D0C98291E555A0096284F /* IPABuild */;
-			productType = "com.apple.product-type.tool";
+			productReference = 0C2D0C98291E555A0096284F /* IPABuild.app */;
+			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
@@ -223,6 +239,16 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		4AA2B2C6F3E041A9B6D5DBA1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXShellScriptBuildPhase section */
 		71950A59A332415C3512ECF3 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -253,8 +279,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0CB5AC7A2EB91DDA0059CC70 /* ContentView.swift in Sources */,
 				0CF298762933417400120FEE /* ShellOut.swift in Sources */,
-				0C2D0C9C291E555A0096284F /* main.swift in Sources */,
 				0CA65D942B33D91000903047 /* SFTP.swift in Sources */,
 				0C2D0CCF291EB1AB0096284F /* MobileProvision.swift in Sources */,
 				0C3D98EB29324CF100C3FD9C /* XCConfig+Extension.swift in Sources */,
@@ -263,6 +289,7 @@
 				0C6378E0292E7F270080CAFD /* X509Certificate+Extension.swift in Sources */,
 				0CA7BE432B33EEAE000A3441 /* XCBuildConfiguration+Extension.swift in Sources */,
 				0CCC20F62937AD9800B9EA88 /* Destination.swift in Sources */,
+				0CB5AC7E2EB91FCE0059CC70 /* IPABuildApp.swift in Sources */,
 				0C2D0CD1291EBA360096284F /* MobileProvision+Extension.swift in Sources */,
 				0C6378E2293052200080CAFD /* Date+Extension.swift in Sources */,
 				0C2D0CBD291E92290096284F /* IPABuild.swift in Sources */,
@@ -394,11 +421,16 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D2773D46CE385A30239B7D5B /* Pods-IPABuild.debug.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				INFOPLIST_FILE = IPABuild/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.IPABuild;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -409,11 +441,16 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = B7BAFA25020E96481CE904ED /* Pods-IPABuild.release.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				INFOPLIST_FILE = IPABuild/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.IPABuild;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;

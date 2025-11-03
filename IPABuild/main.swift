@@ -8,7 +8,6 @@
 
 import ASN1Decoder
 import Foundation
-import KeychainAccess
 import PathKit
 import XcodeProj
 
@@ -39,49 +38,31 @@ struct CertificateFilter {
     let withIssuerOrgNames: [String] = [IssuerOrganizationName.appleInc]
 }
 
-let keychain: Keychain = .login
+// 将原先命令行入口的输出改为可复用的调试函数，避免与 SwiftUI @main 冲突。
+func debugListCertificates() {
+    let keychain: Keychain = .login
+    let certificates = X509Certificate.findCertificates(in: keychain)
+    let certificateNamesWithPrivateKey = X509Certificate.findCertificateNamesWithPrivateKey(in: keychain)
+    let filter = CertificateFilter()
 
-let mobileProvisions = MobileProvision.defaultMobileProvisions()
+    var index = 1
+    certificates?.forEach { cer in
+        let daysUntilExpiry = cer.daysUntilExpiry
+        guard let subjectCommonName = cer.subjectCommonNames?.first else { return }
 
-let certificates = X509Certificate.findCertificates(in: keychain)
+        if filter.withPrivateKey {
+            guard certificateNamesWithPrivateKey.contains(subjectCommonName) else { return }
+        }
+        if filter.withIssuerOrgNames.isEmpty == false {
+            guard let issuerOrgName = cer.issuerOrganizationName else { return }
+            guard filter.withIssuerOrgNames.contains(issuerOrgName) else { return }
+        }
 
-let certificateNamesWithPrivateKey = X509Certificate.findCertificateNamesWithPrivateKey(in: keychain)
+        let expiryText: String = (daysUntilExpiry.days < 0 || daysUntilExpiry.hours < 0)
+            ? "⚠️已过期"
+            : "\(daysUntilExpiry.days)天\(daysUntilExpiry.hours)小时"
 
-/// 过滤器
-let filter = CertificateFilter()
-
-// mobileProvisions.forEach { provision in
-//    print("mobile provision name:\(provision.name)")
-// }
-
-var index = 1
-certificates?.forEach { cer in
-
-    // 证书有效时间
-    let daysUntilExpiry = cer.daysUntilExpiry
-    // 主题常用名称
-    guard let subjectCommonName = cer.subjectCommonNames?.first else { return }
-    // 签发者组织
-    guard let issuerOrgName = cer.issuerOrganizationName else { return }
-    
-    // 过滤有私钥的证书
-    if filter.withPrivateKey {
-        guard certificateNamesWithPrivateKey.contains(subjectCommonName) else { return }
+        print("\(index)【\(subjectCommonName)】\(expiryText)")
+        index += 1
     }
-
-    // 过滤签发者组织
-    if filter.withIssuerOrgNames.isEmpty == false {
-        guard let issuerOrgName = cer.issuerOrganizationName else { return }
-        guard filter.withIssuerOrgNames.contains(issuerOrgName) else { return }
-    }
-    
-    let expiryText: String
-    if daysUntilExpiry.days < 0 || daysUntilExpiry.hours < 0 {
-        expiryText = "⚠️已过期"
-    } else {
-        expiryText = "\(daysUntilExpiry.days)天\(daysUntilExpiry.hours)小时"
-    }
-    
-    print("\(index)【\(subjectCommonName)】\(expiryText)")
-    index += 1
 }

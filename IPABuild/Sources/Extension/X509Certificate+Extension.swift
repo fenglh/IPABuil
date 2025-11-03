@@ -14,10 +14,12 @@ enum IssuerOrganizationName {
     static let veriSignInc = "VeriSign, Inc."
 }
 
-enum Keychain {
+enum Keychain: String, CaseIterable, Hashable, Identifiable {
     case `default`
     case login
-    
+
+    var id: String { rawValue }
+
     var dbPath: String {
         switch self {
         case .`default`:
@@ -96,6 +98,29 @@ extension X509Certificate {
         return timeBetweenDates(startDate: now, endDate: notAfter)
     }
 
+    /// 是否即将过期（30天内）
+    var isExpiringSoon: Bool {
+        let d = daysUntilExpiry
+        return d.days >= 0 && d.days <= 30
+    }
+
+    /// 是否已过期
+    var isExpired: Bool {
+        let d = daysUntilExpiry
+        return d.days < 0 || d.hours < 0
+    }
+
+    /// 格式化过期时间
+    var formattedExpiry: String {
+        guard let notAfter else { return "-" }
+        return notAfter.formattedString
+    }
+
+    /// 粗略信任判断（仅基于有效期/基本校验）
+    var isTrusted: Bool {
+        return checkValidity()
+    }
+
  
 }
 
@@ -169,5 +194,3 @@ extension Data {
         return output as String
     }
 }
-
-
