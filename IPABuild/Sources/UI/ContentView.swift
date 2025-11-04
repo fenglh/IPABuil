@@ -25,11 +25,19 @@ struct ContentView: View {
     @State private var onlyWithPrivateKey = false
     @State private var onlyStarred = false
     @State private var sortOption: SortOption = .default
-    // 列宽（可拖拽调整）
-    @State private var colFavW: CGFloat = 26
-    @State private var colNameW: CGFloat = 360
-    @State private var colExpiryW: CGFloat = 180
-    @State private var colSerialW: CGFloat = 140
+    // 列宽（可拖拽调整，持久化）
+    @AppStorage("ColFavW") private var colFavWStore: Double = 26
+    @AppStorage("ColNameW") private var colNameWStore: Double = 360
+    @AppStorage("ColExpiryW") private var colExpiryWStore: Double = 180
+    @AppStorage("ColSerialW") private var colSerialWStore: Double = 140
+    private var colFavW: CGFloat { get { CGFloat(colFavWStore) } set { colFavWStore = Double(max(20, newValue)) } }
+    private var colNameW: CGFloat { get { CGFloat(colNameWStore) } set { colNameWStore = Double(max(120, newValue)) } }
+    private var colExpiryW: CGFloat { get { CGFloat(colExpiryWStore) } set { colExpiryWStore = Double(max(140, newValue)) } }
+    private var colSerialW: CGFloat { get { CGFloat(colSerialWStore) } set { colSerialWStore = Double(max(100, newValue)) } }
+    private var bindFavW: Binding<CGFloat> { Binding(get: { CGFloat(colFavWStore) }, set: { colFavWStore = Double(max(20, $0)) }) }
+    private var bindNameW: Binding<CGFloat> { Binding(get: { CGFloat(colNameWStore) }, set: { colNameWStore = Double(max(120, $0)) }) }
+    private var bindExpiryW: Binding<CGFloat> { Binding(get: { CGFloat(colExpiryWStore) }, set: { colExpiryWStore = Double(max(140, $0)) }) }
+    private var bindSerialW: Binding<CGFloat> { Binding(get: { CGFloat(colSerialWStore) }, set: { colSerialWStore = Double(max(100, $0)) }) }
     
     // 默认使用登录钥匙串
 
@@ -126,12 +134,15 @@ struct ContentView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .frame(maxWidth: 260)
 
-                // 排序
+                // 排序（与表头点击联动）
                 Picker("排序", selection: $sortOption) {
                     Text("默认").tag(SortOption.default)
-                    Text("名称").tag(SortOption.nameAsc)
-                    Text("到期-近到远").tag(SortOption.expiryAsc)
-                    Text("到期-远到近").tag(SortOption.expiryDesc)
+                    Text("名称↑").tag(SortOption.nameAsc)
+                    Text("名称↓").tag(SortOption.nameDesc)
+                    Text("到期↑").tag(SortOption.expiryAsc) // 近到远
+                    Text("到期↓").tag(SortOption.expiryDesc) // 远到近
+                    Text("序列号↑").tag(SortOption.serialAsc)
+                    Text("序列号↓").tag(SortOption.serialDesc)
                 }
                 .frame(width: 160)
                 Spacer()
@@ -156,17 +167,15 @@ struct ContentView: View {
                         VStack(spacing: 0) {
                             // 表头（含拖拽分割线）
                             HStack(spacing: 0) {
-                                Toggle("", isOn: headerFavoritesBinding())
-                                    .toggleStyle(.checkbox)
-                                    .labelsHidden()
+                                headerFavoritesTriStateView()
                                     .frame(width: colFavW, alignment: .leading)
-                                columnResizer(left: $colFavW, right: $colNameW)
+                                columnResizer(left: bindFavW, right: bindNameW)
                                 headerSortableLabel(title: "名称", isActive: sortOption.isName, ascending: sortOption.isAscendingForName) { toggleSort(for: .name) }
                                     .frame(width: colNameW, alignment: .leading)
-                                columnResizer(left: $colNameW, right: $colExpiryW)
+                                columnResizer(left: bindNameW, right: bindExpiryW)
                                 headerSortableLabel(title: "过期时间", isActive: sortOption.isExpiry, ascending: sortOption.isAscendingForExpiry) { toggleSort(for: .expiry) }
                                     .frame(width: colExpiryW, alignment: .leading)
-                                columnResizer(left: $colExpiryW, right: $colSerialW)
+                                columnResizer(left: bindExpiryW, right: bindSerialW)
                                 headerSortableLabel(title: "序列号", isActive: sortOption.isSerial, ascending: sortOption.isAscendingForSerial) { toggleSort(for: .serial) }
                                     .frame(width: colSerialW, alignment: .leading)
                             }
@@ -432,25 +441,44 @@ struct ContentView: View {
 
     private func nameFor(_ cert: X509Certificate) -> String? { cert.subjectCommonNames?.first }
 
-    // 表头：当前页全选绑定
-    private func headerFavoritesBinding() -> Binding<Bool> {
-        Binding<Bool>(
-            get: {
-                let ids = getUserStarredIDs()
-                let displayIDs = displayedCertificates.map { certificateID($0) }
-                return !displayIDs.isEmpty && displayIDs.allSatisfy { ids.contains($0) }
-            },
-            set: { newValue in
-                var ids = getUserStarredIDs()
-                let displayIDs = displayedCertificates.map { certificateID($0) }
-                if newValue {
-                    for id in displayIDs { ids.insert(id) }
-                } else {
-                    for id in displayIDs { ids.remove(id) }
+    // 表头：当前页全选三态
+    private enum TriState { case all, none, partial }
+    private func headerFavoritesState() -> TriState {
+        let ids = getUserStarredIDs()
+        let displayIDs = displayedCertificates.map { certificateID($0) }
+        guard !displayIDs.isEmpty else { return .none }
+        let count = displayIDs.filter { ids.contains($0) }.count
+        if count == 0 { return .none }
+        if count == displayIDs.count { return .all }
+        return .partial
+    }
+
+    @ViewBuilder
+    private func headerFavoritesTriStateView() -> some View {
+        let state = headerFavoritesState()
+        Button(action: headerFavoritesToggleAll) {
+            Image(systemName: {
+                switch state {
+                case .all: return "checkmark.square"
+                case .none: return "square"
+                case .partial: return "minus.square"
                 }
-                setUserStarredIDs(ids)
-            }
-        )
+            }())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .help("当前页全选/全不选")
+    }
+
+    private func headerFavoritesToggleAll() {
+        var ids = getUserStarredIDs()
+        let displayIDs = displayedCertificates.map { certificateID($0) }
+        switch headerFavoritesState() {
+        case .all:
+            for id in displayIDs { ids.remove(id) }
+        default:
+            for id in displayIDs { ids.insert(id) }
+        }
+        setUserStarredIDs(ids)
     }
 
     // 表头：可点击排序标签
