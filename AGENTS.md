@@ -1,31 +1,32 @@
 # Repository Guidelines
 
-## 项目结构与模块组织
-- `IPABuild/` 为 macOS 命令行工具；入口 `main.swift`；核心代码在 `Sources/`（如 `IPABuild.swift`、`ExportOptions.swift`、`MobileProvision.swift`、`ShellOut.swift`）；通用扩展在 `Sources/Extension/`；示例资源在 `Resources/`。
-- 依赖通过 CocoaPods 管理（见 `Podfile`），产出在 `Pods/`。构建优先使用 `IPABuild.xcworkspace`。
-- `X509Certificate/` 是示例库与 podspec，非主目标必需。
+## Project Structure & Module Organization
+- `IPABuild/` contains the macOS command-line tool; `main.swift` starts execution, while `Sources/` holds core types such as `IPABuild.swift`, `ExportOptions.swift`, `MobileProvision.swift`, and `ShellOut.swift`.
+- Shared helpers live in `Sources/Extension/`, and sample provisioning assets stay under `Resources/` for local validation only.
+- Manage CocoaPods through the root `Podfile`; resolved dependencies sit in `Pods/`. Always open `IPABuild.xcworkspace` to ensure the Pods target is linked.
+- `X509Certificate/` is a reference library and podspec used for signing experiments; it is optional for mainline builds but useful for understanding certificate parsing.
 
-## 构建、测试与开发命令
-- 安装依赖（Apple Silicon）：`arch -x86_64 pod install`；其他环境：`pod install`。
-- 调试构建：`xcodebuild -workspace IPABuild.xcworkspace -scheme IPABuild -configuration Debug build`。
-- 归档导出：由 `IPABuild.swift` 生成并封装 `xcodebuild archive` 与 `-exportArchive`。开发期可在 `main.swift` 调用 `IPABuild().run(scheme: "IPABuild", method: .appStore)`。
-- 本地运行：用 Xcode 打开 workspace 运行，控制台会输出证书与描述文件信息。
+## Build, Test, and Development Commands
+- `arch -x86_64 pod install` (Apple Silicon) or `pod install` (Intel) keeps Pods aligned with `Podfile.lock`.
+- `xcodebuild -workspace IPABuild.xcworkspace -scheme IPABuild -configuration Debug build` performs the standard debug build and surfaces compiler regressions early.
+- During development you can call `IPABuild().run(scheme: "IPABuild", method: .appStore)` from `main.swift` to wrap `xcodebuild archive` and `-exportArchive` for quick dry runs.
+- Launching via Xcode is the easiest way to inspect certificate and provisioning output in the console before modifying export options.
 
-## 代码风格与命名规范
-- Swift 5 / Xcode 14+；4 空格缩进；建议早返回；仅为复杂逻辑添加简短注释。
-- 命名：类型用 `PascalCase`，函数/变量用 `camelCase`；文件名与主类型一致（如 `ExportOptions.swift`）。
-- 格式化：使用 Xcode 自带格式化；当前未强制使用 linter。
+## Coding Style & Naming Conventions
+- Target Swift 5 with four-space indentation, early returns, and concise comments reserved for non-obvious flows.
+- Types use PascalCase, methods and properties use camelCase, and files should mirror their primary type (e.g., `ExportOptions.swift`).
+- Prefer Xcode's built-in formatter; no external linter is enforced, so keep diffs minimal and focused.
 
-## 测试指南
-- 暂无独立测试 target。建议手动验证：
-  - 运行程序，检查控制台证书列表输出。
-  - 使用已知 scheme 进行归档 dry-run，确认日志包含 "ARCHIVE SUCCEEDED"。
-- 在 PR 中附复现命令与关键日志，便于审阅。
+## Testing Guidelines
+- There is no standalone test target; rely on manual verification.
+- Run the tool locally to ensure certificate listings print, then execute an archive dry run and confirm the log contains `ARCHIVE SUCCEEDED`.
+- Record the exact commands and key console snippets in PRs so reviewers can reproduce issues.
 
-## 提交与 Pull Request
-- 提交信息简洁、祈使语；一次只改一件事。示例：`build: fix export options for ad-hoc` 或 `+ 优化打包`。
-- PR 应包含：变更目的与背景、测试步骤与期望输出、关联 issue、必要截图或日志。
+## Commit & Pull Request Guidelines
+- Use short, imperative commits that cover a single concern, such as `build: fix export options for ad-hoc` or `ci: harden archive logging`.
+- PRs should state the motivation, summarize changes, link issues, and attach relevant logs or screenshots.
+- Always describe the manual validation you performed (commands, expected output) to keep reviewers aligned.
 
-## 安全与配置提示（可选）
-- 不要提交真实证书、私钥或描述文件；证书保存在系统钥匙串，描述文件位于 `~/Library/MobileDevice/Provisioning Profiles/`。
-- 不要直接修改 `Pods/` 内容；改动应通过 `Podfile` 与 `pod install` 生效。
+## Security & Configuration Tips
+- Never commit real certificates, private keys, or provisioning profiles; keep them in the system keychain and `~/Library/MobileDevice/Provisioning Profiles/` respectively.
+- Avoid editing generated `Pods/` sources. Update `Podfile`, rerun `pod install`, and verify the workspace before committing.

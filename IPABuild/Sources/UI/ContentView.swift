@@ -29,15 +29,12 @@ struct ContentView: View {
     @AppStorage("ColFavW") private var colFavWStore: Double = 26
     @AppStorage("ColNameW") private var colNameWStore: Double = 360
     @AppStorage("ColExpiryW") private var colExpiryWStore: Double = 180
-    @AppStorage("ColSerialW") private var colSerialWStore: Double = 140
     private var colFavW: CGFloat { get { CGFloat(colFavWStore) } set { colFavWStore = Double(max(20, newValue)) } }
     private var colNameW: CGFloat { get { CGFloat(colNameWStore) } set { colNameWStore = Double(max(120, newValue)) } }
     private var colExpiryW: CGFloat { get { CGFloat(colExpiryWStore) } set { colExpiryWStore = Double(max(140, newValue)) } }
-    private var colSerialW: CGFloat { get { CGFloat(colSerialWStore) } set { colSerialWStore = Double(max(100, newValue)) } }
     private var bindFavW: Binding<CGFloat> { Binding(get: { CGFloat(colFavWStore) }, set: { colFavWStore = Double(max(20, $0)) }) }
     private var bindNameW: Binding<CGFloat> { Binding(get: { CGFloat(colNameWStore) }, set: { colNameWStore = Double(max(120, $0)) }) }
     private var bindExpiryW: Binding<CGFloat> { Binding(get: { CGFloat(colExpiryWStore) }, set: { colExpiryWStore = Double(max(140, $0)) }) }
-    private var bindSerialW: Binding<CGFloat> { Binding(get: { CGFloat(colSerialWStore) }, set: { colSerialWStore = Double(max(100, $0)) }) }
     
     // 默认使用登录钥匙串
 
@@ -87,10 +84,6 @@ struct ContentView: View {
             list.sort { ($0.daysUntilExpiry.days, $0.daysUntilExpiry.hours) < ($1.daysUntilExpiry.days, $1.daysUntilExpiry.hours) }
         case .expiryDesc:
             list.sort { ($0.daysUntilExpiry.days, $0.daysUntilExpiry.hours) > ($1.daysUntilExpiry.days, $1.daysUntilExpiry.hours) }
-        case .serialAsc:
-            list.sort { ($0.serialNumberHex ?? "") < ($1.serialNumberHex ?? "") }
-        case .serialDesc:
-            list.sort { ($0.serialNumberHex ?? "") > ($1.serialNumberHex ?? "") }
         default:
             break
         }
@@ -130,7 +123,7 @@ struct ContentView: View {
                 Divider().frame(height: 20)
 
                 // 搜索框
-                TextField("搜索名称/签发者/序列号", text: $searchText)
+                TextField("搜索名称/签发者", text: $searchText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .frame(maxWidth: 260)
 
@@ -141,8 +134,6 @@ struct ContentView: View {
                     Text("名称↓").tag(SortOption.nameDesc)
                     Text("到期↑").tag(SortOption.expiryAsc) // 近到远
                     Text("到期↓").tag(SortOption.expiryDesc) // 远到近
-                    Text("序列号↑").tag(SortOption.serialAsc)
-                    Text("序列号↓").tag(SortOption.serialDesc)
                 }
                 .frame(width: 160)
                 Spacer()
@@ -163,7 +154,7 @@ struct ContentView: View {
                 HStack(spacing: 0) {
                     // 证书列表
                     ScrollView(.horizontal) {
-                        let totalWidth = colFavW + colNameW + colExpiryW + colSerialW + 32
+                        let totalWidth = colFavW + colNameW + colExpiryW + 32
                         VStack(spacing: 0) {
                             // 表头（含拖拽分割线）
                             HStack(spacing: 0) {
@@ -175,9 +166,6 @@ struct ContentView: View {
                                 columnResizer(left: bindNameW, right: bindExpiryW)
                                 headerSortableLabel(title: "过期时间", isActive: sortOption.isExpiry, ascending: sortOption.isAscendingForExpiry) { toggleSort(for: .expiry) }
                                     .frame(width: colExpiryW, alignment: .leading)
-                                columnResizer(left: bindExpiryW, right: bindSerialW)
-                                headerSortableLabel(title: "序列号", isActive: sortOption.isSerial, ascending: sortOption.isAscendingForSerial) { toggleSort(for: .serial) }
-                                    .frame(width: colSerialW, alignment: .leading)
                             }
                             .font(.headline)
                             .padding(.horizontal, 16)
@@ -193,7 +181,7 @@ struct ContentView: View {
                                         isUserTrusted: getUserTrustedIDs().contains(certificateID(cert)),
                                         isFavorite: favoriteBinding(for: cert),
                                         hasPrivateKey: nameFor(cert).map { privateKeyNames.contains($0) } ?? false,
-                                        favWidth: colFavW, nameWidth: colNameW, expiryWidth: colExpiryW, serialWidth: colSerialW
+                                        favWidth: colFavW, nameWidth: colNameW, expiryWidth: colExpiryW
                                     )
                                     .contextMenu { certificateContextMenu(cert) }
                                     .contentShape(Rectangle())
@@ -497,15 +485,13 @@ struct ContentView: View {
         .buttonStyle(PlainButtonStyle())
     }
 
-    private enum SortKey { case name, expiry, serial }
+    private enum SortKey { case name, expiry }
     private func toggleSort(for key: SortKey) {
         switch key {
         case .name:
             sortOption = (sortOption == .nameAsc) ? .nameDesc : .nameAsc
         case .expiry:
             sortOption = (sortOption == .expiryAsc) ? .expiryDesc : .expiryAsc
-        case .serial:
-            sortOption = (sortOption == .serialAsc) ? .serialDesc : .serialAsc
         }
     }
 }
@@ -517,16 +503,12 @@ enum SortOption: String, CaseIterable, Identifiable {
     case nameDesc
     case expiryAsc
     case expiryDesc
-    case serialAsc
-    case serialDesc
     var id: String { rawValue }
 
     var isName: Bool { self == .nameAsc || self == .nameDesc }
     var isExpiry: Bool { self == .expiryAsc || self == .expiryDesc }
-    var isSerial: Bool { self == .serialAsc || self == .serialDesc }
     var isAscendingForName: Bool { self == .nameAsc }
     var isAscendingForExpiry: Bool { self == .expiryAsc }
-    var isAscendingForSerial: Bool { self == .serialAsc }
 }
 
 // 证书行视图
@@ -538,10 +520,10 @@ struct X509CertificateRow: View {
     let favWidth: CGFloat
     let nameWidth: CGFloat
     let expiryWidth: CGFloat
-    let serialWidth: CGFloat
 
     var body: some View {
-        HStack(spacing: 8) {
+        let showExpiryWarning = certificate.isExpired || certificate.isExpiringSoon
+        return HStack(spacing: 8) {
             // 关注复选框
             Toggle("", isOn: $isFavorite)
                 .toggleStyle(.checkbox)
@@ -571,18 +553,14 @@ struct X509CertificateRow: View {
             HStack {
                 Text(certificate.formattedExpiry)
                     .font(.system(size: 13))
-                    .foregroundColor(certificate.isExpiringSoon ? .red : .primary)
-                if certificate.isExpiringSoon {
+                    .foregroundColor(showExpiryWarning ? .red : .primary)
+                if showExpiryWarning {
                     Image(systemName: "exclamationmark.circle.fill").foregroundColor(.red).font(.system(size: 10))
                 }
             }
             .frame(width: expiryWidth, alignment: .leading)
 
-            // 序列号列
-            Text(certificate.serialNumberHex ?? "-")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-                .frame(width: serialWidth, alignment: .leading)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
