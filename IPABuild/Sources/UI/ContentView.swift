@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import ASN1Decoder
 import AppKit
+import CryptoKit
 
 // 主视图
 struct ContentView: View {
@@ -39,6 +40,9 @@ struct ContentView: View {
     
     // 钉钉自动提醒配置
     @AppStorage("DingTalkWebhookURL") private var dingTalkWebhookURL: String = ""
+    @AppStorage("DingTalkSecret") private var dingTalkSecretStore: String = ""
+    @AppStorage("DingTalkKeyword") private var dingTalkKeywordStore: String = ""
+    @AppStorage("DingTalkAtMobiles") private var dingTalkAtMobilesStore: String = ""
     @AppStorage("DingTalkFrequencyDays") private var dingTalkFrequencyDays: Int = 1
     @AppStorage("DingTalkLastAutoSentTimestamp") private var dingTalkLastAutoSentTimestamp: Double = 0
     @State private var showDingTalkConfig = false
@@ -109,6 +113,21 @@ struct ContentView: View {
     
     private var sanitizedDingTalkWebhook: String {
         dingTalkWebhookURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    private var sanitizedDingTalkSecret: String {
+        dingTalkSecretStore.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    private var sanitizedDingTalkKeyword: String {
+        dingTalkKeywordStore.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    private var dingTalkAtMobiles: [String] {
+        dingTalkAtMobilesStore
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
     
     private var hasValidDingTalkWebhook: Bool {
@@ -208,6 +227,9 @@ struct ContentView: View {
         .sheet(isPresented: $showDingTalkConfig) {
             DingTalkConfigView(
                 webhookURL: $dingTalkWebhookURL,
+                secret: $dingTalkSecretStore,
+                keyword: $dingTalkKeywordStore,
+                atMobiles: $dingTalkAtMobilesStore,
                 frequencyDays: Binding(
                     get: { max(1, dingTalkFrequencyDays) },
                     set: { dingTalkFrequencyDays = max(1, $0) }
@@ -225,10 +247,12 @@ struct ContentView: View {
     private var certificateListPane: some View {
         GeometryReader { geo in
             let baseNameWidth = CGFloat(colNameWStore)
-            let baseWidth = colFavW + baseNameWidth + colExpiryW + operationColumnWidth + 32
+            let staticColumnsWidth = colFavW + colExpiryW + operationColumnWidth
+            let baseWidth = staticColumnsWidth + baseNameWidth
             let delta = geo.size.width - baseWidth
-            let effectiveNameWidth = max(120, baseNameWidth + delta)
-            let totalWidth = max(colFavW + effectiveNameWidth + colExpiryW + operationColumnWidth + 32, geo.size.width)
+            let maxNameWidth = min(580, baseNameWidth + delta)
+            let effectiveNameWidth = min(maxNameWidth, max(120, baseNameWidth + delta))
+            let totalWidth = max(staticColumnsWidth + effectiveNameWidth, geo.size.width)
             ScrollView([.vertical, .horizontal]) {
                 VStack(spacing: 0) {
                     headerRow(width: totalWidth, nameWidth: effectiveNameWidth)
@@ -259,6 +283,7 @@ struct ContentView: View {
                     }
                 }
                 .frame(width: totalWidth, alignment: .leading)
+                .frame(minHeight: geo.size.height, alignment: .topLeading)
             }
             .scrollIndicators(.visible)
         }
@@ -269,7 +294,7 @@ struct ContentView: View {
     private func headerRow(width: CGFloat, nameWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
             headerFavoritesTriStateView()
-                .frame(width: colFavW, alignment: .leading)
+                .frame(width: colFavW, alignment: .center)
             columnResizer(left: bindFavW, right: bindNameW)
             headerSortableLabel(title: "名称", isActive: sortOption.isName, ascending: sortOption.isAscendingForName) { toggleSort(for: .name) }
                 .frame(width: nameWidth, alignment: .leading)
@@ -281,7 +306,7 @@ struct ContentView: View {
                 .foregroundColor(.secondary)
         }
         .font(.headline)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 0)
         .padding(.vertical, 8)
         .background(Color.gray.opacity(0.1))
         .frame(width: width, alignment: .leading)
@@ -529,12 +554,15 @@ struct ContentView: View {
             presentDingTalkAlert("没有可提醒的证书。")
             return
         }
-        guard let url = URL(string: sanitizedDingTalkWebhook) else {
+        guard let url = dingTalkRequestURL() else {
             presentDingTalkAlert("Webhook地址无效。")
             return
         }
         
-        let payload = DingTalkTextPayload(content: buildDingTalkMessage(for: certificates, reason: reason))
+        let payload = DingTalkTextPayload(
+            content: buildDingTalkMessage(for: certificates, reason: reason),
+            atMobiles: dingTalkAtMobiles
+        )
         guard let body = try? JSONEncoder().encode(payload) else {
             presentDingTalkAlert("无法编码钉钉请求。")
             return
@@ -549,16 +577,8 @@ struct ContentView: View {
         Task {
             defer { isSendingDingTalk = false }
             do {
-                let (_, response) = try await URLSession.shared.data(for: request)
-                if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                    if case .auto = reason {
-                        dingTalkLastAutoSentTimestamp = Date().timeIntervalSince1970
-                    }
-                    presentDingTalkAlert("钉钉提醒发送成功。")
-                } else {
-                    let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-                    presentDingTalkAlert("钉钉返回异常，状态码：\(code)。")
-                }
+                let (data, response) = try await URLSession.shared.data(for: request)
+                try await handleDingTalkResponse(data: data, response: response, reason: reason)
             } catch {
                 presentDingTalkAlert("发送失败：\(error.localizedDescription)")
             }
@@ -576,7 +596,12 @@ struct ContentView: View {
             header = "证书提醒：\(name)"
         }
         
-        var lines: [String] = [header]
+        var lines: [String] = []
+        if !sanitizedDingTalkKeyword.isEmpty {
+            lines.append(sanitizedDingTalkKeyword)
+        }
+        lines.append(header)
+        let shouldUseBullets = !(certificates.count == 1 && reason.isSingleCertificate)
         for cert in certificates {
             let name = cert.subjectCommonNames?.first ?? "-"
             let issuer = cert.issuerOrganizationName ?? "-"
@@ -590,7 +615,13 @@ struct ContentView: View {
             } else {
                 status = "即将过期"
             }
-            lines.append("• \(name) (\(issuer))\n  到期: \(expiry) | \(status)")
+            let prefix = shouldUseBullets ? "• " : ""
+            lines.append("\(prefix)\(name) (\(issuer))")
+            lines.append("到期: \(expiry) | \(status)")
+        }
+        if !dingTalkAtMobiles.isEmpty {
+            let mentionLine = dingTalkAtMobiles.map { "@\($0)" }.joined(separator: " ")
+            lines.append(mentionLine)
         }
         return lines.joined(separator: "\n")
     }
@@ -598,6 +629,52 @@ struct ContentView: View {
     private func presentDingTalkAlert(_ message: String) {
         dingTalkAlertMessage = message
         showDingTalkAlert = true
+    }
+    
+    private func dingTalkRequestURL() -> URL? {
+        guard var components = URLComponents(string: sanitizedDingTalkWebhook) else { return nil }
+        var queryItems = components.queryItems ?? []
+        let secret = sanitizedDingTalkSecret
+        if !secret.isEmpty {
+            let timestamp = Int(Date().timeIntervalSince1970 * 1000)
+            let stringToSign = "\(timestamp)\n\(secret)"
+            let key = SymmetricKey(data: Data(secret.utf8))
+            let signature = HMAC<SHA256>.authenticationCode(for: Data(stringToSign.utf8), using: key)
+            let signData = Data(signature)
+            let base64 = signData.base64EncodedString()
+            let encodedSign = base64.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? base64
+            queryItems.append(URLQueryItem(name: "timestamp", value: "\(timestamp)"))
+            queryItems.append(URLQueryItem(name: "sign", value: encodedSign))
+        }
+        if !queryItems.isEmpty {
+            components.percentEncodedQueryItems = queryItems
+        }
+        return components.url
+    }
+
+    private func handleDingTalkResponse(data: Data, response: URLResponse, reason: DingTalkReminderReason) async throws {
+        guard let http = response as? HTTPURLResponse else {
+            presentDingTalkAlert("钉钉返回异常：无效响应。")
+            return
+        }
+        guard http.statusCode == 200 else {
+            presentDingTalkAlert("钉钉返回异常，状态码：\(http.statusCode)。")
+            return
+        }
+        if let result = try? JSONDecoder().decode(DingTalkRobotResponse.self, from: data) {
+            if result.errcode == 0 {
+                if case .auto = reason {
+                    dingTalkLastAutoSentTimestamp = Date().timeIntervalSince1970
+                }
+                presentDingTalkAlert("钉钉提醒发送成功。")
+            } else {
+                let errMsg = result.errmsg ?? "未知错误"
+                presentDingTalkAlert("钉钉返回错误：\(errMsg)")
+            }
+        } else {
+            let raw = String(data: data, encoding: .utf8) ?? "未知内容"
+            presentDingTalkAlert("钉钉返回无法解析：\(raw)")
+        }
     }
 
     private func fetchSHA1(_ cert: X509Certificate) -> String? {
@@ -724,7 +801,7 @@ struct X509CertificateRow: View {
             Toggle("", isOn: $isFavorite)
                 .toggleStyle(.checkbox)
                 .labelsHidden()
-                .frame(width: favWidth, alignment: .leading)
+                .frame(width: favWidth, alignment: .center)
 
             // 名称 + 徽章
             HStack(spacing: 8) {
@@ -767,7 +844,7 @@ struct X509CertificateRow: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 0)
         .padding(.vertical, 8)
         .background(Color.clear)
         .contentShape(Rectangle())
@@ -919,23 +996,47 @@ private enum DingTalkReminderReason {
     case auto
     case manualAll
     case manualSingle(String)
+    
+    var isSingleCertificate: Bool {
+        if case .manualSingle = self { return true }
+        return false
+    }
 }
 
 private struct DingTalkTextPayload: Encodable {
     let msgtype = "text"
     let text: TextBody
+    let at: AtBody?
     
     struct TextBody: Encodable {
         let content: String
     }
     
-    init(content: String) {
-        self.text = TextBody(content: content)
+    struct AtBody: Encodable {
+        let atMobiles: [String]
+        let isAtAll: Bool
     }
+    
+    init(content: String, atMobiles: [String]) {
+        self.text = TextBody(content: content)
+        if atMobiles.isEmpty {
+            self.at = nil
+        } else {
+            self.at = AtBody(atMobiles: atMobiles, isAtAll: false)
+        }
+    }
+}
+
+private struct DingTalkRobotResponse: Decodable {
+    let errcode: Int
+    let errmsg: String?
 }
 
 struct DingTalkConfigView: View {
     @Binding var webhookURL: String
+    @Binding var secret: String
+    @Binding var keyword: String
+    @Binding var atMobiles: String
     @Binding var frequencyDays: Int
     @Binding var lastAutoTimestamp: Double
     @Environment(\.dismiss) private var dismiss
@@ -958,6 +1059,15 @@ struct DingTalkConfigView: View {
             TextField("Webhook 地址", text: $webhookURL)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
             
+            SecureField("加签 Secret（若未开启加签可留空）", text: $secret)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+            
+            TextField("关键词（若配置了关键词，请填写以确保消息包含）", text: $keyword)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+            
+            TextField("提醒指定手机号（多个用逗号分隔）", text: $atMobiles)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+
             Stepper(value: $frequencyDays, in: 1...30) {
                 Text("自动发送频率：每 \(frequencyDays) 天")
             }
