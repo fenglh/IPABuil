@@ -10,6 +10,7 @@ import SwiftUI
 import ASN1Decoder
 import AppKit
 import CryptoKit
+import ServiceManagement
 
 // 主视图
 struct ContentView: View {
@@ -21,20 +22,18 @@ struct ContentView: View {
 
     // 过滤与排序
     @State private var searchText: String = ""
-    @State private var onlyValid = true
-    @State private var onlyAppleIssuer = false
-    @State private var onlyWithPrivateKey = false
-    @State private var onlyStarred = false
+    @State private var filterOption: CertificateFilterOption = .all
+    @AppStorage("CertificateFilterOption") private var storedFilterOptionRaw: String = CertificateFilterOption.all.rawValue
     @State private var sortOption: SortOption = .default
     // 列宽（可拖拽调整，持久化）
-    @AppStorage("ColFavW") private var colFavWStore: Double = 26
+    @AppStorage("ColFavW") private var colFavWStore: Double = 110
     @AppStorage("ColNameW") private var colNameWStore: Double = 360
     @AppStorage("ColExpiryW") private var colExpiryWStore: Double = 180
-    private var colFavW: CGFloat { get { CGFloat(colFavWStore) } set { colFavWStore = Double(max(20, newValue)) } }
+    private var colFavW: CGFloat { get { CGFloat(colFavWStore) } set { colFavWStore = Double(max(60, newValue)) } }
     private var colNameW: CGFloat { get { CGFloat(colNameWStore) } set { colNameWStore = Double(max(120, newValue)) } }
     private var colExpiryW: CGFloat { get { CGFloat(colExpiryWStore) } set { colExpiryWStore = Double(max(140, newValue)) } }
     private let operationColumnWidth: CGFloat = 80
-    private var bindFavW: Binding<CGFloat> { Binding(get: { CGFloat(colFavWStore) }, set: { colFavWStore = Double(max(20, $0)) }) }
+    private var bindFavW: Binding<CGFloat> { Binding(get: { CGFloat(colFavWStore) }, set: { colFavWStore = Double(max(60, $0)) }) }
     private var bindNameW: Binding<CGFloat> { Binding(get: { CGFloat(colNameWStore) }, set: { colNameWStore = Double(max(120, $0)) }) }
     private var bindExpiryW: Binding<CGFloat> { Binding(get: { CGFloat(colExpiryWStore) }, set: { colExpiryWStore = Double(max(140, $0)) }) }
     
@@ -44,12 +43,20 @@ struct ContentView: View {
     @AppStorage("DingTalkKeyword") private var dingTalkKeywordStore: String = ""
     @AppStorage("DingTalkAtMobiles") private var dingTalkAtMobilesStore: String = ""
     @AppStorage("DingTalkFrequencyDays") private var dingTalkFrequencyDays: Int = 1
+    @AppStorage("DingTalkSendHour") private var dingTalkSendHour: Int = 9
+    @AppStorage("LaunchAtLoginEnabled") private var launchAtLoginEnabled = false
     @AppStorage("DingTalkLastAutoSentTimestamp") private var dingTalkLastAutoSentTimestamp: Double = 0
     @State private var showDingTalkConfig = false
     @State private var isSendingDingTalk = false
     @State private var showDingTalkAlert = false
     @State private var dingTalkAlertMessage: String? = nil
     @State private var dingTalkTimer: Timer?
+    @State private var showGeneralAlert = false
+    @State private var generalAlertTitle: String = ""
+    @State private var generalAlertMessage: String? = nil
+    @State private var suppressLaunchStateUpdate = false
+    @State private var currentManualSendingID: String? = nil
+    @State private var isGlobalReminderInProgress = false
     
     // 默认使用登录钥匙串
 
@@ -74,12 +81,16 @@ struct ContentView: View {
     // 计算属性：过滤 + 排序后的证书
     private var displayedCertificates: [X509Certificate] {
         var list = certificates
-        if onlyValid { list = list.filter { !$0.isExpired } }
-        if onlyAppleIssuer { list = list.filter { ($0.issuerOrganizationName ?? "").contains(IssuerOrganizationName.appleInc) } }
-        if onlyWithPrivateKey { list = list.filter { nameFor($0).map { privateKeyNames.contains($0) } ?? false } }
-        if onlyStarred {
+        switch filterOption {
+        case .all:
+            break
+        case .validOnly:
+            list = list.filter { !$0.isExpired }
+        case .starredOnly:
             let starred = getUserStarredIDs()
             list = list.filter { starred.contains(certificateID($0)) }
+        case .withPrivateKey:
+            list = list.filter { nameFor($0).map { privateKeyNames.contains($0) } ?? false }
         }
         if !searchText.isEmpty {
             let q = searchText.lowercased()
@@ -129,7 +140,7 @@ struct ContentView: View {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
     }
-    
+
     private var hasValidDingTalkWebhook: Bool {
         guard let url = URL(string: sanitizedDingTalkWebhook) else { return false }
         return !sanitizedDingTalkWebhook.isEmpty && (url.scheme == "http" || url.scheme == "https")
@@ -140,30 +151,21 @@ struct ContentView: View {
             // 顶部工具栏
             HStack(spacing: 12) {
                 // 筛选
-                Text("筛选：").foregroundColor(.secondary)
-                Toggle("有效", isOn: $onlyValid)
-                    .toggleStyle(.switch)
-                    .help("仅显示在有效期内的证书")
-                Toggle("Apple签发", isOn: $onlyAppleIssuer)
-                    .toggleStyle(.switch)
-                    .help("仅显示由 Apple 机构签发的证书")
-                Toggle("含私钥", isOn: $onlyWithPrivateKey)
-                    .toggleStyle(.switch)
-                    .help("仅显示钥匙串中带有私钥的证书")
-                Toggle("关注", isOn: $onlyStarred)
-                    .toggleStyle(.switch)
-                    .help("仅显示已标记为关注的证书")
+                Picker(selection: $filterOption, label: Image(systemName: "line.3.horizontal.decrease.circle")) {
+                    ForEach(CertificateFilterOption.allCases) { option in
+                        Text(option.displayName).tag(option)
+                    }
+                }
+                .pickerStyle(MenuPickerStyle())
+                .help("点击选择要过滤的证书范围")
 
                 Button("重置") {
-                    onlyValid = true
-                    onlyAppleIssuer = false
-                    onlyWithPrivateKey = false
-                    onlyStarred = false
+                    filterOption = .all
                     searchText = ""
                     sortOption = .default
                 }
                 .buttonStyle(.bordered)
-                .help("重置所有筛选项")
+                .help("重置过滤与排序")
 
                 Divider().frame(height: 20)
 
@@ -189,14 +191,14 @@ struct ContentView: View {
                 
                 Divider().frame(height: 20)
                 
-                Button("钉钉配置") {
+                Button("配置") {
                     showDingTalkConfig = true
                 }
                 
-                Button("钉钉提醒关注") {
-                    sendDingTalkReminder(for: starredCertificatesList, reason: .manualAll)
+                Button("立即提醒") {
+                    triggerManualAllReminder()
                 }
-                .disabled(starredCertificatesList.isEmpty || !hasValidDingTalkWebhook || isSendingDingTalk)
+                .disabled(starredCertificatesList.isEmpty || !hasValidDingTalkWebhook || isSendingDingTalk || isGlobalReminderInProgress || currentManualSendingID != nil)
                 .help("立即把全部关注证书通过钉钉机器人提醒")
             }
             .padding(12)
@@ -212,14 +214,26 @@ struct ContentView: View {
                     certificateListPane
                         .frame(minWidth: 360)
                     certificateDetailPane
-                        .frame(minWidth: 320)
+                        .frame(minWidth: 160)
                 }
             }
         }
         .frame(minWidth: 900, minHeight: 650)
         .onAppear {
             loadData()
+            filterOption = CertificateFilterOption(rawValue: storedFilterOptionRaw) ?? .all
+            applyLaunchAtLoginState(enabled: launchAtLoginEnabled, showAlertOnUnsupported: false)
             scheduleDingTalkTimer()
+        }
+        .onChange(of: filterOption) { newValue in
+            storedFilterOptionRaw = newValue.rawValue
+        }
+        .onChange(of: launchAtLoginEnabled) { newValue in
+            if suppressLaunchStateUpdate {
+                suppressLaunchStateUpdate = false
+            } else {
+                applyLaunchAtLoginState(enabled: newValue, showAlertOnUnsupported: true)
+            }
         }
         .onDisappear {
             dingTalkTimer?.invalidate()
@@ -230,6 +244,11 @@ struct ContentView: View {
                 secret: $dingTalkSecretStore,
                 keyword: $dingTalkKeywordStore,
                 atMobiles: $dingTalkAtMobilesStore,
+                sendHour: Binding(
+                    get: { dingTalkSendHour },
+                    set: { dingTalkSendHour = min(23, max(0, $0)) }
+                ),
+                launchAtLoginEnabled: $launchAtLoginEnabled,
                 frequencyDays: Binding(
                     get: { max(1, dingTalkFrequencyDays) },
                     set: { dingTalkFrequencyDays = max(1, $0) }
@@ -241,6 +260,11 @@ struct ContentView: View {
             Button("好的", role: .cancel) { }
         } message: {
             Text(dingTalkAlertMessage ?? "")
+        }
+        .alert(generalAlertTitle, isPresented: $showGeneralAlert) {
+            Button("好的", role: .cancel) { }
+        } message: {
+            Text(generalAlertMessage ?? "")
         }
     }
     
@@ -260,20 +284,20 @@ struct ContentView: View {
                         .frame(width: totalWidth)
                     ForEach(Array(displayedCertificates.enumerated()), id: \.offset) { idx, cert in
                         let isSelected = selectedIndex == idx
-                        X509CertificateRow(
-                            certificate: cert,
-                            isUserTrusted: getUserTrustedIDs().contains(certificateID(cert)),
-                            isFavorite: favoriteBinding(for: cert),
-                            hasPrivateKey: nameFor(cert).map { privateKeyNames.contains($0) } ?? false,
-                            favWidth: colFavW,
-                            nameWidth: effectiveNameWidth,
-                            expiryWidth: colExpiryW,
-                            dingTalkEnabled: hasValidDingTalkWebhook && !isSendingDingTalk,
-                            manualReminderAction: {
-                                sendDingTalkReminder(for: [cert], reason: .manualSingle(nameFor(cert) ?? "未命名证书"))
-                            },
-                            operationWidth: operationColumnWidth
-                        )
+                                    X509CertificateRow(
+                                        certificate: cert,
+                                        isUserTrusted: getUserTrustedIDs().contains(certificateID(cert)),
+                                        isFavorite: favoriteBinding(for: cert),
+                                        hasPrivateKey: nameFor(cert).map { privateKeyNames.contains($0) } ?? false,
+                                        favWidth: colFavW,
+                                        nameWidth: effectiveNameWidth,
+                                        expiryWidth: colExpiryW,
+                                        dingTalkEnabled: isRowReminderEnabled(for: cert),
+                                        manualReminderAction: {
+                                            sendManualReminder(for: cert)
+                                        },
+                                        operationWidth: operationColumnWidth
+                                    )
                         .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
                         .contentShape(Rectangle())
                         .onTapGesture { selectedIndex = idx }
@@ -292,18 +316,20 @@ struct ContentView: View {
     
     @ViewBuilder
     private func headerRow(width: CGFloat, nameWidth: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            headerFavoritesTriStateView()
-                .frame(width: colFavW, alignment: .center)
-            columnResizer(left: bindFavW, right: bindNameW)
-            headerSortableLabel(title: "名称", isActive: sortOption.isName, ascending: sortOption.isAscendingForName) { toggleSort(for: .name) }
-                .frame(width: nameWidth, alignment: .leading)
+                    HStack(spacing: 0) {
+                        Text("订阅自动提醒")
+                            .font(.system(size: 12, weight: .semibold))
+                            .frame(width: colFavW, alignment: .center)
+                        columnResizer(left: bindFavW, right: bindNameW)
+                        headerSortableLabel(title: "名称", isActive: sortOption.isName, ascending: sortOption.isAscendingForName) { toggleSort(for: .name) }
+                            .frame(width: nameWidth, alignment: .leading)
             columnResizer(left: bindNameW, right: bindExpiryW)
             headerSortableLabel(title: "过期时间", isActive: sortOption.isExpiry, ascending: sortOption.isAscendingForExpiry) { toggleSort(for: .expiry) }
                 .frame(width: colExpiryW, alignment: .leading)
             Text("操作")
                 .frame(width: operationColumnWidth, alignment: .center)
                 .foregroundColor(.secondary)
+            Spacer(minLength: 0)
         }
         .font(.headline)
         .padding(.horizontal, 0)
@@ -517,6 +543,31 @@ struct ContentView: View {
         }
         setUserStarredIDs(ids)
     }
+
+    private func isRowReminderEnabled(for certificate: X509Certificate) -> Bool {
+        guard hasValidDingTalkWebhook else { return false }
+        if isGlobalReminderInProgress { return false }
+        if let sendingID = currentManualSendingID {
+            return certificateID(certificate) != sendingID
+        }
+        return !isSendingDingTalk
+    }
+
+    private func sendManualReminder(for certificate: X509Certificate) {
+        let id = certificateID(certificate)
+        currentManualSendingID = id
+        sendDingTalkReminder(for: [certificate], reason: .manualSingle(nameFor(certificate) ?? "未命名证书")) {
+            currentManualSendingID = nil
+        }
+    }
+
+    private func triggerManualAllReminder() {
+        guard !starredCertificatesList.isEmpty else { return }
+        isGlobalReminderInProgress = true
+        sendDingTalkReminder(for: starredCertificatesList, reason: .manualAll) {
+            isGlobalReminderInProgress = false
+        }
+    }
     
     // 钉钉提醒相关
     private func scheduleDingTalkTimer() {
@@ -534,28 +585,52 @@ struct ContentView: View {
         guard hasValidDingTalkWebhook else { return }
         guard dingTalkFrequencyDays > 0 else { return }
         if isSendingDingTalk { return }
-        let lastSendDate = dingTalkLastAutoSentTimestamp > 0 ? Date(timeIntervalSince1970: dingTalkLastAutoSentTimestamp) : nil
-        if let lastSendDate,
-           let next = Calendar.current.date(byAdding: .day, value: dingTalkFrequencyDays, to: lastSendDate),
-           Date() < next {
-            return
-        }
+        let now = Date()
+        guard shouldTriggerAutoSend(at: now) else { return }
         let starred = starredCertificatesList
         guard !starred.isEmpty else { return }
-        sendDingTalkReminder(for: starred, reason: .auto)
+        isGlobalReminderInProgress = true
+        sendDingTalkReminder(for: starred, reason: .auto) {
+            isGlobalReminderInProgress = false
+        }
+    }
+
+    private func shouldTriggerAutoSend(at now: Date) -> Bool {
+        let targetHour = min(23, max(0, dingTalkSendHour))
+        let calendar = Calendar.current
+        let lastSendDate = dingTalkLastAutoSentTimestamp > 0 ? Date(timeIntervalSince1970: dingTalkLastAutoSentTimestamp) : nil
+        if let lastSendDate {
+            guard let nextBase = calendar.date(byAdding: .day, value: dingTalkFrequencyDays, to: lastSendDate) else { return true }
+            var components = calendar.dateComponents([.year, .month, .day], from: nextBase)
+            components.hour = targetHour
+            components.minute = 0
+            components.second = 0
+            guard let nextScheduled = calendar.date(from: components) else { return true }
+            return now >= nextScheduled
+        } else {
+            let currentHour = calendar.component(.hour, from: now)
+            return currentHour >= targetHour
+        }
     }
     
-    private func sendDingTalkReminder(for certificates: [X509Certificate], reason: DingTalkReminderReason) {
+    private func sendDingTalkReminder(for certificates: [X509Certificate], reason: DingTalkReminderReason, completion: (() -> Void)? = nil) {
+        guard !isSendingDingTalk else {
+            completion?()
+            return
+        }
         guard hasValidDingTalkWebhook else {
             presentDingTalkAlert("请先在“钉钉配置”中填写有效的Webhook地址。")
+            completion?()
             return
         }
         guard !certificates.isEmpty else {
             presentDingTalkAlert("没有可提醒的证书。")
+            completion?()
             return
         }
         guard let url = dingTalkRequestURL() else {
             presentDingTalkAlert("Webhook地址无效。")
+            completion?()
             return
         }
         
@@ -575,7 +650,10 @@ struct ContentView: View {
         request.httpBody = body
         
         Task {
-            defer { isSendingDingTalk = false }
+            defer {
+                isSendingDingTalk = false
+                completion?()
+            }
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
                 try await handleDingTalkResponse(data: data, response: response, reason: reason)
@@ -629,6 +707,34 @@ struct ContentView: View {
     private func presentDingTalkAlert(_ message: String) {
         dingTalkAlertMessage = message
         showDingTalkAlert = true
+    }
+    
+    private func presentGeneralAlert(_ title: String, message: String) {
+        generalAlertTitle = title
+        generalAlertMessage = message
+        showGeneralAlert = true
+    }
+
+    private func applyLaunchAtLoginState(enabled: Bool, showAlertOnUnsupported: Bool) {
+        guard #available(macOS 13.0, *) else {
+            if showAlertOnUnsupported {
+                presentGeneralAlert("无法配置", message: "开机自动启动功能需要 macOS 13.0 及以上版本。")
+            }
+            suppressLaunchStateUpdate = true
+            launchAtLoginEnabled = false
+            return
+        }
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            presentGeneralAlert("配置失败", message: "无法更新开机启动：\(error.localizedDescription)")
+            suppressLaunchStateUpdate = true
+            launchAtLoginEnabled = !enabled
+        }
     }
     
     private func dingTalkRequestURL() -> URL? {
@@ -699,46 +805,6 @@ struct ContentView: View {
 
     private func nameFor(_ cert: X509Certificate) -> String? { cert.subjectCommonNames?.first }
 
-    // 表头：当前页全选三态
-    private enum TriState { case all, none, partial }
-    private func headerFavoritesState() -> TriState {
-        let ids = getUserStarredIDs()
-        let displayIDs = displayedCertificates.map { certificateID($0) }
-        guard !displayIDs.isEmpty else { return .none }
-        let count = displayIDs.filter { ids.contains($0) }.count
-        if count == 0 { return .none }
-        if count == displayIDs.count { return .all }
-        return .partial
-    }
-
-    @ViewBuilder
-    private func headerFavoritesTriStateView() -> some View {
-        let state = headerFavoritesState()
-        Button(action: headerFavoritesToggleAll) {
-            Image(systemName: {
-                switch state {
-                case .all: return "checkmark.square"
-                case .none: return "square"
-                case .partial: return "minus.square"
-                }
-            }())
-        }
-        .buttonStyle(PlainButtonStyle())
-        .help("当前页全选/全不选")
-    }
-
-    private func headerFavoritesToggleAll() {
-        var ids = getUserStarredIDs()
-        let displayIDs = displayedCertificates.map { certificateID($0) }
-        switch headerFavoritesState() {
-        case .all:
-            for id in displayIDs { ids.remove(id) }
-        default:
-            for id in displayIDs { ids.insert(id) }
-        }
-        setUserStarredIDs(ids)
-    }
-
     // 表头：可点击排序标签
     @ViewBuilder
     private func headerSortableLabel(title: String, isActive: Bool, ascending: Bool, action: @escaping () -> Void) -> some View {
@@ -781,6 +847,24 @@ enum SortOption: String, CaseIterable, Identifiable {
     var isAscendingForExpiry: Bool { self == .expiryAsc }
 }
 
+enum CertificateFilterOption: String, CaseIterable, Identifiable {
+    case all
+    case validOnly
+    case starredOnly
+    case withPrivateKey
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .all: return "所有证书"
+        case .validOnly: return "仅显示有效的证书"
+        case .starredOnly: return "仅显示已关注的证书"
+        case .withPrivateKey: return "仅显示包含私钥的证书"
+        }
+    }
+}
+
 // 证书行视图
 struct X509CertificateRow: View {
     let certificate: X509Certificate
@@ -799,15 +883,16 @@ struct X509CertificateRow: View {
         return HStack(spacing: 8) {
             // 关注复选框
             Toggle("", isOn: $isFavorite)
-                .toggleStyle(.checkbox)
+                .toggleStyle(.switch)
                 .labelsHidden()
+                .controlSize(.small)
                 .frame(width: favWidth, alignment: .center)
 
             // 名称 + 徽章
             HStack(spacing: 8) {
-                Image(systemName: certificate.isTrusted ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                    .foregroundColor(certificate.isTrusted ? .green : .orange)
-                    .font(.system(size: 12))
+                Image(systemName: "certificate")
+                    .font(.system(size: 13))
+                    .foregroundColor(.accentColor)
                 if isUserTrusted {
                     Image(systemName: "shield.fill").foregroundColor(.green).font(.system(size: 10))
                 }
@@ -823,23 +908,17 @@ struct X509CertificateRow: View {
             .frame(width: nameWidth, alignment: .leading)
 
             // 过期时间列
-            HStack {
-                Text(certificate.formattedExpiry)
-                    .font(.system(size: 13))
-                    .foregroundColor(showExpiryWarning ? .red : .primary)
-                if showExpiryWarning {
-                    Image(systemName: "exclamationmark.circle.fill").foregroundColor(.red).font(.system(size: 10))
-                }
-            }
+            Text(certificate.formattedExpiry)
+                .font(.system(size: 13))
+                .foregroundColor(showExpiryWarning ? .red : .primary)
             .frame(width: expiryWidth, alignment: .leading)
 
-            Button(action: manualReminderAction) {
-                Image(systemName: "bell.badge")
-            }
-            .buttonStyle(BorderlessButtonStyle())
+            Button("立即提醒", action: manualReminderAction)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
             .disabled(!dingTalkEnabled)
             .foregroundColor(dingTalkEnabled ? .accentColor : .secondary)
-            .help(dingTalkEnabled ? "发送该证书的钉钉提醒" : "请先配置钉钉Webhook")
+            .help(dingTalkEnabled ? "立即发送该证书的钉钉提醒" : "请先配置钉钉Webhook")
             .frame(width: operationWidth, alignment: .center)
 
             Spacer(minLength: 0)
@@ -1037,6 +1116,8 @@ struct DingTalkConfigView: View {
     @Binding var secret: String
     @Binding var keyword: String
     @Binding var atMobiles: String
+    @Binding var sendHour: Int
+    @Binding var launchAtLoginEnabled: Bool
     @Binding var frequencyDays: Int
     @Binding var lastAutoTimestamp: Double
     @Environment(\.dismiss) private var dismiss
@@ -1050,31 +1131,82 @@ struct DingTalkConfigView: View {
         return formatter.string(from: date)
     }
     
+    private var nextReminderDescription: String {
+        guard frequencyDays > 0 else { return "未配置自动发送频率" }
+        let calendar = Calendar.current
+        let targetHour = min(23, max(0, sendHour))
+        let baseDate: Date
+        if lastAutoTimestamp > 0 {
+            baseDate = Date(timeIntervalSince1970: lastAutoTimestamp)
+        } else {
+            baseDate = Date()
+        }
+        guard let nextBase = calendar.date(byAdding: .day, value: frequencyDays, to: baseDate) else {
+            return "无法计算"
+        }
+        var components = calendar.dateComponents([.year, .month, .day], from: nextBase)
+        components.hour = targetHour
+        components.minute = 0
+        components.second = 0
+        guard let nextScheduled = calendar.date(from: components) else {
+            return "无法计算"
+        }
+        let now = Date()
+        if nextScheduled <= now {
+            return "即将发送"
+        }
+        let remaining = nextScheduled.timeIntervalSince(now)
+        let days = Int(remaining) / 86_400
+        let hours = (Int(remaining) % 86_400) / 3_600
+        let minutes = (Int(remaining) % 3_600) / 60
+        let seconds = Int(remaining) % 60
+        return "剩余 \(days) 天 \(String(format: "%02d:%02d:%02d", hours, minutes, seconds))"
+    }
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("钉钉提醒配置")
+        VStack(alignment: .leading, spacing: 20) {
+            Text("配置")
                 .font(.title2)
                 .bold()
             
-            TextField("Webhook 地址", text: $webhookURL)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-            
-            SecureField("加签 Secret（若未开启加签可留空）", text: $secret)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-            
-            TextField("关键词（若配置了关键词，请填写以确保消息包含）", text: $keyword)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-            
-            TextField("提醒指定手机号（多个用逗号分隔）", text: $atMobiles)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+            GroupBox(label: Text("钉钉配置").font(.headline)) {
+                VStack(alignment: .leading, spacing: 12) {
+                    TextField("Webhook 地址", text: $webhookURL)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    
+                    SecureField("加签 Secret（若未开启加签可留空）", text: $secret)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    
+                    TextField("关键词（若配置了关键词，请填写以确保消息包含）", text: $keyword)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    
+                    TextField("提醒指定手机号（多个用逗号分隔）", text: $atMobiles)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
 
-            Stepper(value: $frequencyDays, in: 1...30) {
-                Text("自动发送频率：每 \(frequencyDays) 天")
+                    Stepper(value: $frequencyDays, in: 1...30) {
+                        Text("自动发送频率：每 \(frequencyDays) 天")
+                    }
+                    
+                    Stepper(value: $sendHour, in: 0...23) {
+                        Text("发送时间：每天 \(sendHour) 点")
+                    }
+                    
+                    Text("上次自动发送：\(lastAutoDescription)")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                    
+                    Text("距离下一次提醒：\(nextReminderDescription)")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
             }
             
-            Text("上次自动发送：\(lastAutoDescription)")
-                .font(.footnote)
-                .foregroundColor(.secondary)
+            GroupBox(label: Text("其他配置").font(.headline)) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle("开机自动启动证书管理", isOn: $launchAtLoginEnabled)
+                        .help("启用后，登录 macOS 时会自动启动证书管理。")
+                }
+            }
             
             Spacer()
             
@@ -1087,7 +1219,7 @@ struct DingTalkConfigView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 420, minHeight: 260)
+        .frame(minWidth: 460, minHeight: 360)
     }
 }
 
