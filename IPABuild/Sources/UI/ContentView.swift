@@ -899,9 +899,9 @@ enum CertificateFilterOption: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .all: return "所有证书"
-        case .validOnly: return "仅显示有效的证书"
-        case .starredOnly: return "仅显示已关注的证书"
-        case .withPrivateKey: return "仅显示包含私钥的证书"
+        case .validOnly: return "有效的证书"
+        case .starredOnly: return "已订阅的证书"
+        case .withPrivateKey: return "包含私钥的证书"
         }
     }
 }
@@ -1244,7 +1244,7 @@ struct DingTalkConfigView: View {
             
             GroupBox(label: Text("其他配置").font(.headline)) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Toggle("开机自动启动证书管理", isOn: $launchAtLoginEnabled)
+                    Toggle("开机启动", isOn: $launchAtLoginEnabled)
                         .help("启用后，登录 macOS 时会自动启动证书管理。")
                 }
             }

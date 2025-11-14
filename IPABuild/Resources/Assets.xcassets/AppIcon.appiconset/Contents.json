@@ -1,15 +1,68 @@
 {
   "images": [
-    {"idiom":"mac","size":"16x16","scale":"1x"},
-    {"idiom":"mac","size":"16x16","scale":"2x"},
-    {"idiom":"mac","size":"32x32","scale":"1x"},
-    {"idiom":"mac","size":"32x32","scale":"2x"},
-    {"idiom":"mac","size":"128x128","scale":"1x"},
-    {"idiom":"mac","size":"128x128","scale":"2x"},
-    {"idiom":"mac","size":"256x256","scale":"1x"},
-    {"idiom":"mac","size":"256x256","scale":"2x"},
-    {"idiom":"mac","size":"512x512","scale":"1x"},
-    {"idiom":"mac","size":"512x512","scale":"2x"}
+    {
+      "idiom": "mac",
+      "size": "16x16",
+      "scale": "1x",
+      "filename": "appicon_16.png"
+    },
+    {
+      "idiom": "mac",
+      "size": "16x16",
+      "scale": "2x",
+      "filename": "appicon_16@2x.png"
+    },
+    {
+      "idiom": "mac",
+      "size": "32x32",
+      "scale": "1x",
+      "filename": "appicon_32.png"
+    },
+    {
+      "idiom": "mac",
+      "size": "32x32",
+      "scale": "2x",
+      "filename": "appicon_32@2x.png"
+    },
+    {
+      "idiom": "mac",
+      "size": "128x128",
+      "scale": "1x",
+      "filename": "appicon_128.png"
+    },
+    {
+      "idiom": "mac",
+      "size": "128x128",
+      "scale": "2x",
+      "filename": "appicon_128@2x.png"
+    },
+    {
+      "idiom": "mac",
+      "size": "256x256",
+      "scale": "1x",
+      "filename": "appicon_256.png"
+    },
+    {
+      "idiom": "mac",
+      "size": "256x256",
+      "scale": "2x",
+      "filename": "appicon_256@2x.png"
+    },
+    {
+      "idiom": "mac",
+      "size": "512x512",
+      "scale": "1x",
+      "filename": "appicon_512.png"
+    },
+    {
+      "idiom": "mac",
+      "size": "512x512",
+      "scale": "2x",
+      "filename": "appicon_1024.png"
+    }
   ],
-  "info": {"version":1, "author":"xcode"}
+  "info": {
+    "version": 1,
+    "author": "xcode"
+  }
 }
