@@ -346,7 +346,7 @@ struct ContentView: View {
                     .padding(16)
             } else {
                 VStack(spacing: 12) {
-                    Image(systemName: "certificate")
+                    Image(systemName: "signature")
                         .font(.system(size: 48))
                         .foregroundColor(.gray)
                     Text("选择证书以查看详情")
@@ -372,12 +372,6 @@ struct ContentView: View {
             }
             
             Spacer()
-            
-            Button("修复") {
-                fixUntrustedX509Certificate()
-            }
-            .buttonStyle(BorderlessButtonStyle())
-            .font(.system(size: 12))
             
             Button(action: { showUntrustedWarning = false }) {
                 Image(systemName: "xmark.circle.fill")
@@ -408,12 +402,6 @@ struct ContentView: View {
     private func refreshX509Certificates() {
         // 模拟刷新操作
         print("刷新证书列表")
-    }
-    
-    private func fixUntrustedX509Certificate() {
-        showUntrustedWarning = false
-        // 在实际应用中，这里会调用security命令修复证书信任
-        print("修复不受信任的证书")
     }
     
     private func showX509CertificateInfo(_ certificate: X509Certificate) {
