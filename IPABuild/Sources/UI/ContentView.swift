@@ -6,11 +6,11 @@
 //
 
 import Foundation
+import Darwin
 import SwiftUI
 import ASN1Decoder
 import AppKit
 import CryptoKit
-import ServiceManagement
 
 // 主视图
 struct ContentView: View {
@@ -704,19 +704,31 @@ struct ContentView: View {
     }
 
     private func applyLaunchAtLoginState(enabled: Bool, showAlertOnUnsupported: Bool) {
-        guard #available(macOS 13.0, *) else {
+        guard let bundleID = Bundle.main.bundleIdentifier else {
             if showAlertOnUnsupported {
-                presentGeneralAlert("无法配置", message: "开机自动启动功能需要 macOS 13.0 及以上版本。")
+                presentGeneralAlert("无法配置", message: "未能获取应用标识。")
             }
             suppressLaunchStateUpdate = true
             launchAtLoginEnabled = false
             return
         }
+        let fm = FileManager.default
+        let launchAgentsDir = fm.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library")
+            .appendingPathComponent("LaunchAgents")
+        let plistURL = launchAgentsDir.appendingPathComponent("\(bundleID).launchagent.plist")
         do {
+            try fm.createDirectory(at: launchAgentsDir, withIntermediateDirectories: true, attributes: nil)
             if enabled {
-                try SMAppService.mainApp.register()
+                let data = try launchAgentPlist(for: bundleID)
+                try data.write(to: plistURL, options: .atomic)
+                _ = runLaunchctlSilently(["bootout", launchctlTarget(), plistURL.path])
+                try runLaunchctl(["bootstrap", launchctlTarget(), plistURL.path])
             } else {
-                try SMAppService.mainApp.unregister()
+                if fm.fileExists(atPath: plistURL.path) {
+                    _ = runLaunchctlSilently(["bootout", launchctlTarget(), plistURL.path])
+                    try fm.removeItem(at: plistURL)
+                }
             }
         } catch {
             presentGeneralAlert("配置失败", message: "无法更新开机启动：\(error.localizedDescription)")
@@ -792,6 +804,47 @@ struct ContentView: View {
     }
 
     private func nameFor(_ cert: X509Certificate) -> String? { cert.subjectCommonNames?.first }
+
+    private func launchAgentPlist(for bundleID: String) throws -> Data {
+        let appPath = Bundle.main.bundlePath
+        let dict: [String: Any] = [
+            "Label": bundleID,
+            "ProgramArguments": ["/usr/bin/open", appPath],
+            "RunAtLoad": true,
+            "KeepAlive": false
+        ]
+        return try PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0)
+    }
+    
+    private func runLaunchctl(_ arguments: [String]) throws {
+        let process = Process()
+        process.launchPath = "/bin/launchctl"
+        process.arguments = arguments
+        let pipe = Pipe()
+        process.standardError = pipe
+        try process.run()
+        process.waitUntilExit()
+        if process.terminationStatus != 0 {
+            let errorData = pipe.fileHandleForReading.readDataToEndOfFile()
+            let message = String(data: errorData, encoding: .utf8) ?? "launchctl 执行失败"
+            throw NSError(domain: "LaunchAgent", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: message])
+        }
+    }
+
+    @discardableResult
+    private func runLaunchctlSilently(_ arguments: [String]) -> Bool {
+        do {
+            try runLaunchctl(arguments)
+            return true
+        } catch {
+            return false
+        }
+    }
+    
+    private func launchctlTarget() -> String {
+        let uid = getuid()
+        return "gui/\(uid)"
+    }
 
     // 表头：可点击排序标签
     @ViewBuilder
