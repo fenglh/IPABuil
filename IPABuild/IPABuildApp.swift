@@ -3,6 +3,10 @@ import AppKit
 
 @main
 struct IPABuildApp: App {
+    init() {
+        DingTalkReminderManager.shared.start()
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()

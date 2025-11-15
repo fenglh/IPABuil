@@ -6,10 +6,254 @@
 //
 
 import Foundation
-import Darwin
 import SwiftUI
 import ASN1Decoder
 import AppKit
+import CryptoKit
+
+private enum DingTalkReminderReason {
+    case auto
+    case manualAll
+    case manualSingle(String)
+    
+    var isSingleCertificate: Bool {
+        if case .manualSingle = self { return true }
+        return false
+    }
+}
+
+private struct DingTalkTextPayload: Encodable {
+    let msgtype = "text"
+    let text: TextBody
+    let at: AtBody?
+    
+    struct TextBody: Encodable {
+        let content: String
+    }
+    
+    struct AtBody: Encodable {
+        let atMobiles: [String]
+        let isAtAll: Bool
+    }
+    
+    init(content: String, atMobiles: [String]) {
+        self.text = TextBody(content: content)
+        if atMobiles.isEmpty {
+            self.at = nil
+        } else {
+            self.at = AtBody(atMobiles: atMobiles, isAtAll: false)
+        }
+    }
+}
+
+private struct DingTalkRobotResponse: Decodable {
+    let errcode: Int
+    let errmsg: String?
+}
+
+final class DingTalkReminderManager {
+    static let shared = DingTalkReminderManager()
+    private var timer: DispatchSourceTimer?
+    private let queue = DispatchQueue(label: "com.ipabuild.dingtalk.scheduler", qos: .background)
+    private var isSending = false
+    
+    private init() {}
+    
+    func start() {
+        guard timer == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 5, repeating: .seconds(3600), leeway: .seconds(60))
+        timer.setEventHandler { [weak self] in
+            self?.performAutoReminder()
+        }
+        timer.resume()
+        self.timer = timer
+        queue.async { [weak self] in
+            self?.performAutoReminder()
+        }
+    }
+    
+    private func performAutoReminder() {
+        let defaults = UserDefaults.standard
+        guard let webhook = defaults.string(forKey: "DingTalkWebhookURL")?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !webhook.isEmpty else { return }
+        let frequency = defaults.integer(forKey: "DingTalkFrequencyDays")
+        guard frequency > 0 else { return }
+        let sendHour = defaults.integer(forKey: "DingTalkSendHour")
+        let lastTimestamp = defaults.double(forKey: "DingTalkLastAutoSentTimestamp")
+        let now = Date()
+        guard shouldSend(now: now, frequencyDays: frequency, targetHour: sendHour, lastTimestamp: lastTimestamp) else {
+            return
+        }
+        
+        let starredIDs = Set(defaults.string(forKey: "UserStarredCertIDs")?
+            .split(separator: ",")
+            .map { String($0) } ?? [])
+        guard !starredIDs.isEmpty else { return }
+        
+        guard let certificates = X509Certificate.findCertificates(in: .login) else { return }
+        let starredCertificates = certificates.filter { starredIDs.contains(certificateID($0)) }
+        guard !starredCertificates.isEmpty else { return }
+        
+        let secret = defaults.string(forKey: "DingTalkSecret") ?? ""
+        let keyword = defaults.string(forKey: "DingTalkKeyword") ?? ""
+        let atMobilesString = defaults.string(forKey: "DingTalkAtMobiles") ?? ""
+        let atMobiles = atMobilesString.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        
+        sendDingTalkReminder(
+            webhook: webhook,
+            secret: secret,
+            keyword: keyword,
+            atMobiles: atMobiles,
+            certificates: starredCertificates,
+            reason: .auto
+        ) { success in
+            if success {
+                defaults.set(Date().timeIntervalSince1970, forKey: "DingTalkLastAutoSentTimestamp")
+            }
+        }
+    }
+    
+    private func shouldSend(now: Date, frequencyDays: Int, targetHour: Int, lastTimestamp: Double) -> Bool {
+        let hour = min(23, max(0, targetHour))
+        let calendar = Calendar.current
+        if lastTimestamp <= 0 {
+            let currentHour = calendar.component(.hour, from: now)
+            return currentHour >= hour
+        }
+        guard let nextBase = calendar.date(byAdding: .day, value: frequencyDays, to: Date(timeIntervalSince1970: lastTimestamp)) else {
+            return true
+        }
+        var components = calendar.dateComponents([.year, .month, .day], from: nextBase)
+        components.hour = hour
+        components.minute = 0
+        components.second = 0
+        guard let targetDate = calendar.date(from: components) else { return true }
+        return now >= targetDate
+    }
+    
+    private func sendDingTalkReminder(
+        webhook: String,
+        secret: String,
+        keyword: String,
+        atMobiles: [String],
+        certificates: [X509Certificate],
+        reason: DingTalkReminderReason,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard !isSending else {
+            completion(false)
+            return
+        }
+        guard let url = makeRequestURL(from: webhook, secret: secret) else {
+            completion(false)
+            return
+        }
+        let message = buildMessage(for: certificates, reason: reason, keyword: keyword, atMobiles: atMobiles)
+        let payload = DingTalkTextPayload(content: message, atMobiles: atMobiles)
+        guard let body = try? JSONEncoder().encode(payload) else {
+            completion(false)
+            return
+        }
+        isSending = true
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            self.isSending = false
+            if let error = error {
+                NSLog("DingTalk auto reminder failed: \(error.localizedDescription)")
+                completion(false)
+                return
+            }
+            guard
+                let http = response as? HTTPURLResponse,
+                http.statusCode == 200,
+                let data = data,
+                let result = try? JSONDecoder().decode(DingTalkRobotResponse.self, from: data),
+                result.errcode == 0
+            else {
+                NSLog("DingTalk auto reminder failed: invalid response")
+                completion(false)
+                return
+            }
+            completion(true)
+        }.resume()
+    }
+    
+    private func makeRequestURL(from webhook: String, secret: String) -> URL? {
+        guard var components = URLComponents(string: webhook) else { return nil }
+        guard !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return components.url
+        }
+        let timestamp = Int(Date().timeIntervalSince1970 * 1000)
+        let stringToSign = "\(timestamp)\n\(secret)"
+        guard let secretData = secret.data(using: .utf8) else { return components.url }
+        let key = SymmetricKey(data: secretData)
+        let signature = HMAC<SHA256>.authenticationCode(for: Data(stringToSign.utf8), using: key)
+        let signData = Data(signature).base64EncodedString()
+        let encodedSign = signData.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? signData
+        var items = components.queryItems ?? []
+        items.append(URLQueryItem(name: "timestamp", value: "\(timestamp)"))
+        items.append(URLQueryItem(name: "sign", value: encodedSign))
+        components.queryItems = items
+        return components.url
+    }
+    
+    private func buildMessage(
+        for certificates: [X509Certificate],
+        reason: DingTalkReminderReason,
+        keyword: String,
+        atMobiles: [String]
+    ) -> String {
+        let header: String
+        switch reason {
+        case .auto:
+            header = "自动关注证书提醒"
+        case .manualAll:
+            header = "关注证书手动提醒"
+        case .manualSingle(let name):
+            header = "证书提醒：\(name)"
+        }
+        var lines: [String] = []
+        if !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            lines.append(keyword)
+        }
+        lines.append(header)
+        for cert in certificates {
+            let name = cert.subjectCommonNames?.first ?? "-"
+            let issuer = cert.issuerOrganizationName ?? "-"
+            let expiry = cert.formattedExpiry
+            let days = cert.daysUntilExpiry.days
+            let status: String
+            if cert.isExpired {
+                status = "已过期"
+            } else if days >= 0 {
+                status = "剩余\(days)天"
+            } else {
+                status = "即将过期"
+            }
+            lines.append("• \(name) (\(issuer))")
+            lines.append("到期: \(expiry) | \(status)")
+        }
+        if !atMobiles.isEmpty {
+            lines.append(atMobiles.map { "@\($0)" }.joined(separator: " "))
+        }
+        return lines.joined(separator: "\n")
+    }
+    
+    private func certificateID(_ cert: X509Certificate) -> String {
+        if let sn = cert.serialNumberHex, !sn.isEmpty {
+            return sn
+        }
+        let subject = cert.subjectCommonNames?.first ?? "-"
+        let issuer = cert.issuerOrganizationName ?? "-"
+        let expiry = cert.notAfter?.timeIntervalSince1970 ?? 0
+        return "\(subject)|\(issuer)|\(expiry)"
+    }
+}
 import CryptoKit
 
 // 主视图
@@ -50,7 +294,6 @@ struct ContentView: View {
     @State private var isSendingDingTalk = false
     @State private var showDingTalkAlert = false
     @State private var dingTalkAlertMessage: String? = nil
-    @State private var dingTalkTimer: Timer?
     @State private var showGeneralAlert = false
     @State private var generalAlertTitle: String = ""
     @State private var generalAlertMessage: String? = nil
@@ -223,7 +466,6 @@ struct ContentView: View {
             loadData()
             filterOption = CertificateFilterOption(rawValue: storedFilterOptionRaw) ?? .all
             applyLaunchAtLoginState(enabled: launchAtLoginEnabled, showAlertOnUnsupported: false)
-            scheduleDingTalkTimer()
         }
         .onChange(of: filterOption) { newValue in
             storedFilterOptionRaw = newValue.rawValue
@@ -234,9 +476,6 @@ struct ContentView: View {
             } else {
                 applyLaunchAtLoginState(enabled: newValue, showAlertOnUnsupported: true)
             }
-        }
-        .onDisappear {
-            dingTalkTimer?.invalidate()
         }
         .sheet(isPresented: $showDingTalkConfig) {
             DingTalkConfigView(
@@ -554,50 +793,6 @@ struct ContentView: View {
         isGlobalReminderInProgress = true
         sendDingTalkReminder(for: starredCertificatesList, reason: .manualAll) {
             isGlobalReminderInProgress = false
-        }
-    }
-    
-    // 钉钉提醒相关
-    private func scheduleDingTalkTimer() {
-        dingTalkTimer?.invalidate()
-        dingTalkTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { _ in
-            maybeSendAutoDingTalk()
-        }
-        if let timer = dingTalkTimer {
-            RunLoop.main.add(timer, forMode: .common)
-        }
-        maybeSendAutoDingTalk()
-    }
-    
-    private func maybeSendAutoDingTalk() {
-        guard hasValidDingTalkWebhook else { return }
-        guard dingTalkFrequencyDays > 0 else { return }
-        if isSendingDingTalk { return }
-        let now = Date()
-        guard shouldTriggerAutoSend(at: now) else { return }
-        let starred = starredCertificatesList
-        guard !starred.isEmpty else { return }
-        isGlobalReminderInProgress = true
-        sendDingTalkReminder(for: starred, reason: .auto) {
-            isGlobalReminderInProgress = false
-        }
-    }
-
-    private func shouldTriggerAutoSend(at now: Date) -> Bool {
-        let targetHour = min(23, max(0, dingTalkSendHour))
-        let calendar = Calendar.current
-        let lastSendDate = dingTalkLastAutoSentTimestamp > 0 ? Date(timeIntervalSince1970: dingTalkLastAutoSentTimestamp) : nil
-        if let lastSendDate {
-            guard let nextBase = calendar.date(byAdding: .day, value: dingTalkFrequencyDays, to: lastSendDate) else { return true }
-            var components = calendar.dateComponents([.year, .month, .day], from: nextBase)
-            components.hour = targetHour
-            components.minute = 0
-            components.second = 0
-            guard let nextScheduled = calendar.date(from: components) else { return true }
-            return now >= nextScheduled
-        } else {
-            let currentHour = calendar.component(.hour, from: now)
-            return currentHour >= targetHour
         }
     }
     
@@ -1110,46 +1305,6 @@ struct X509CertificateDetailView: View {
         }
         .padding(8)
     }
-}
-
-private enum DingTalkReminderReason {
-    case auto
-    case manualAll
-    case manualSingle(String)
-    
-    var isSingleCertificate: Bool {
-        if case .manualSingle = self { return true }
-        return false
-    }
-}
-
-private struct DingTalkTextPayload: Encodable {
-    let msgtype = "text"
-    let text: TextBody
-    let at: AtBody?
-    
-    struct TextBody: Encodable {
-        let content: String
-    }
-    
-    struct AtBody: Encodable {
-        let atMobiles: [String]
-        let isAtAll: Bool
-    }
-    
-    init(content: String, atMobiles: [String]) {
-        self.text = TextBody(content: content)
-        if atMobiles.isEmpty {
-            self.at = nil
-        } else {
-            self.at = AtBody(atMobiles: atMobiles, isAtAll: false)
-        }
-    }
-}
-
-private struct DingTalkRobotResponse: Decodable {
-    let errcode: Int
-    let errmsg: String?
 }
 
 struct DingTalkConfigView: View {
