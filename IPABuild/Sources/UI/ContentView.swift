@@ -15,11 +15,15 @@ import AppKit
 private enum DingTalkReminderReason {
     case auto
     case manualAll
-    case manualSingle(String)
+    case manualSingle
     
     var isSingleCertificate: Bool {
         if case .manualSingle = self { return true }
         return false
+    }
+    
+    var header: String {
+            return "证书有效期提醒:"
     }
 }
 
@@ -209,15 +213,7 @@ final class DingTalkReminderManager {
         keyword: String,
         atMobiles: [String]
     ) -> String {
-        let header: String
-        switch reason {
-        case .auto:
-            header = "自动关注证书提醒"
-        case .manualAll:
-            header = "关注证书手动提醒"
-        case .manualSingle(let name):
-            header = "证书提醒：\(name)"
-        }
+        let header: String = reason.header
         var lines: [String] = []
         if !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             lines.append(keyword)
@@ -230,7 +226,7 @@ final class DingTalkReminderManager {
             let days = cert.daysUntilExpiry.days
             let status: String
             if cert.isExpired {
-                status = "已过期"
+                status = "⚠️ 已过期"
             } else if days >= 0 {
                 status = "剩余\(days)天"
             } else {
@@ -754,7 +750,7 @@ struct ContentView: View {
     private func sendManualReminder(for certificate: X509Certificate) {
         let id = certificateID(certificate)
         currentManualSendingID = id
-        sendDingTalkReminder(for: [certificate], reason: .manualSingle(nameFor(certificate) ?? "未命名证书")) {
+        sendDingTalkReminder(for: [certificate], reason: .manualSingle) {
             currentManualSendingID = nil
         }
     }
@@ -818,16 +814,7 @@ struct ContentView: View {
     }
     
     private func buildDingTalkMessage(for certificates: [X509Certificate], reason: DingTalkReminderReason) -> String {
-        let header: String
-        switch reason {
-        case .auto:
-            header = "自动关注证书提醒"
-        case .manualAll:
-            header = "关注证书手动提醒"
-        case .manualSingle(let name):
-            header = "证书提醒：\(name)"
-        }
-        
+        let header: String = reason.header
         var lines: [String] = []
         if !sanitizedDingTalkKeyword.isEmpty {
             lines.append(sanitizedDingTalkKeyword)
@@ -841,7 +828,7 @@ struct ContentView: View {
             let days = cert.daysUntilExpiry.days
             let status: String
             if cert.isExpired {
-                status = "已过期"
+                status = "⚠️ 已过期"
             } else if days >= 0 {
                 status = "剩余\(days)天"
             } else {
