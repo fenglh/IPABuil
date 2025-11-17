@@ -2,15 +2,19 @@
 set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
+INFO_PLIST="$ROOT_DIR/IPABuild/Info.plist"
 SCHEME="IPABuild"
 CONFIG="Release"
 DERIVED_DATA="$ROOT_DIR/build"
 PRODUCTS_DIR="$DERIVED_DATA/Build/Products/$CONFIG"
-APP_NAME="IPABuild.app"
-APP_PATH="$PRODUCTS_DIR/$APP_NAME"
+APP_DISPLAY_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" "$INFO_PLIST" 2>/dev/null || true)
+if [[ -z "$APP_DISPLAY_NAME" ]]; then
+  APP_DISPLAY_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleName" "$INFO_PLIST" 2>/dev/null || echo "IPABuild")
+fi
+APP_BUNDLE_NAME="${APP_DISPLAY_NAME}.app"
+APP_PATH="$PRODUCTS_DIR/$APP_BUNDLE_NAME"
 STAGE_DIR="$ROOT_DIR/dist/DMGStage"
 VOLUME_NAME="证书管理"
-INFO_PLIST="$ROOT_DIR/IPABuild/Info.plist"
 
 read_version_value() {
   /usr/libexec/PlistBuddy -c "Print :$1" "$INFO_PLIST" 2>/dev/null || true
@@ -74,7 +78,7 @@ rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR"
 rm -f "$DMG_OUTPUT"
 
-cp -R "$APP_PATH" "$STAGE_DIR/$VOLUME_NAME.app"
+cp -R "$APP_PATH" "$STAGE_DIR/$APP_BUNDLE_NAME"
 
 printf "\n==> 创建 DMG：%s\n" "$DMG_OUTPUT"
 mkdir -p "$(dirname "$DMG_OUTPUT")"

@@ -286,6 +286,7 @@ struct ContentView: View {
     @AppStorage("DingTalkSendHour") private var dingTalkSendHour: Int = 9
     @AppStorage("LaunchAtLoginEnabled") private var launchAtLoginEnabled = false
     @AppStorage("LaunchAtLoginAutoEnabled") private var launchAtLoginAutoEnabled = false
+    @AppStorage("LaunchExecutablePathCache") private var launchExecutablePathStore: String = ""
     @AppStorage("DingTalkLastAutoSentTimestamp") private var dingTalkLastAutoSentTimestamp: Double = 0
     @State private var showDingTalkConfig = false
     @State private var isSendingDingTalk = false
@@ -876,9 +877,7 @@ struct ContentView: View {
     private func ensureDefaultLaunchAtLoginEnabled() {
         if launchAtLoginAutoEnabled { return }
         guard let bundleID = Bundle.main.bundleIdentifier else { return }
-        let appPath = Bundle.main.bundlePath
-        if appPath.contains("DerivedData") { return }
-        guard let executablePath = Bundle.main.executableURL?.path else { return }
+        guard let executablePath = resolvedExecutablePath() else { return }
         do {
             try LaunchAtLoginManager.shared.setEnabled(
                 true,
@@ -886,12 +885,41 @@ struct ContentView: View {
                 executablePath: executablePath,
                 activateImmediately: false
             )
-            launchAtLoginAutoEnabled = true
-            suppressLaunchStateUpdate = true
-            launchAtLoginEnabled = true
+            let applied = LaunchAtLoginManager.shared.isEnabled(bundleIdentifier: bundleID)
+            if applied {
+                launchAtLoginAutoEnabled = true
+                suppressLaunchStateUpdate = true
+                launchAtLoginEnabled = true
+                launchExecutablePathStore = executablePath
+            }
         } catch {
             // 自动开机启动失败不会打断流程，用户可在配置中手动设置。
         }
+    }
+
+    private func resolvedExecutablePath(allowDerived: Bool = false) -> String? {
+        if let current = Bundle.main.executableURL?.path {
+            if allowDerived || !current.contains("DerivedData") {
+                return current
+            }
+        }
+        if !launchExecutablePathStore.isEmpty,
+           FileManager.default.fileExists(atPath: launchExecutablePathStore) {
+            return launchExecutablePathStore
+        }
+        if let fallback = defaultInstalledExecutablePath(),
+           FileManager.default.fileExists(atPath: fallback) {
+            return fallback
+        }
+        return allowDerived ? Bundle.main.executableURL?.path : nil
+    }
+    
+    private func defaultInstalledExecutablePath() -> String? {
+        guard let bundleName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String,
+              !bundleName.isEmpty else {
+            return nil
+        }
+        return "/Applications/\(bundleName).app/Contents/MacOS/\(bundleName)"
     }
 
     private func applyLaunchAtLoginState(enabled: Bool, showAlertOnUnsupported: Bool) {
@@ -903,18 +931,12 @@ struct ContentView: View {
             launchAtLoginEnabled = false
             return
         }
-        let appPath = Bundle.main.bundlePath
-        if enabled && appPath.contains("DerivedData") {
+        guard let executablePath = resolvedExecutablePath(allowDerived: !enabled) else {
             if showAlertOnUnsupported {
-                presentGeneralAlert("无法配置", message: "请先将应用拖到 /Applications 或其它永久路径后再启用开机启动。")
-            }
-            suppressLaunchStateUpdate = true
-            launchAtLoginEnabled = false
-            return
-        }
-        guard let executablePath = Bundle.main.executableURL?.path else {
-            if showAlertOnUnsupported {
-                presentGeneralAlert("无法配置", message: "未找到可执行文件路径。")
+                let message = enabled
+                ? "未找到可执行文件路径，请将应用移动到 /Applications 后重试。"
+                : "未找到可执行文件路径。"
+                presentGeneralAlert("无法配置", message: message)
             }
             suppressLaunchStateUpdate = true
             launchAtLoginEnabled = false
@@ -925,10 +947,11 @@ struct ContentView: View {
                 enabled,
                 bundleIdentifier: bundleID,
                 executablePath: executablePath,
-                activateImmediately: true
+                activateImmediately: false
             )
             if enabled {
                 launchAtLoginAutoEnabled = true
+                launchExecutablePathStore = executablePath
             }
         } catch {
             if showAlertOnUnsupported {

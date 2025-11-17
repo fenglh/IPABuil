@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "0C2D0C97291E555A0096284F"
-               BuildableName = "IPABuild.app"
+               BuildableName = "&#x8bc1;&#x4e66;&#x7ba1;&#x7406;.app"
                BlueprintName = "IPABuild"
                ReferencedContainer = "container:IPABuild.xcodeproj">
             </BuildableReference>
@@ -46,7 +46,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0C2D0C97291E555A0096284F"
-            BuildableName = "IPABuild.app"
+            BuildableName = "&#x8bc1;&#x4e66;&#x7ba1;&#x7406;.app"
             BlueprintName = "IPABuild"
             ReferencedContainer = "container:IPABuild.xcodeproj">
          </BuildableReference>
@@ -73,7 +73,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0C2D0C97291E555A0096284F"
-            BuildableName = "IPABuild.app"
+            BuildableName = "&#x8bc1;&#x4e66;&#x7ba1;&#x7406;.app"
             BlueprintName = "IPABuild"
             ReferencedContainer = "container:IPABuild.xcodeproj">
          </BuildableReference>
