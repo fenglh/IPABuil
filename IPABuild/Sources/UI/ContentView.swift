@@ -880,7 +880,12 @@ struct ContentView: View {
         if appPath.contains("DerivedData") { return }
         guard let executablePath = Bundle.main.executableURL?.path else { return }
         do {
-            try LaunchAtLoginManager.shared.setEnabled(true, bundleIdentifier: bundleID, executablePath: executablePath)
+            try LaunchAtLoginManager.shared.setEnabled(
+                true,
+                bundleIdentifier: bundleID,
+                executablePath: executablePath,
+                activateImmediately: false
+            )
             launchAtLoginAutoEnabled = true
             suppressLaunchStateUpdate = true
             launchAtLoginEnabled = true
@@ -916,7 +921,12 @@ struct ContentView: View {
             return
         }
         do {
-            try LaunchAtLoginManager.shared.setEnabled(enabled, bundleIdentifier: bundleID, executablePath: executablePath)
+            try LaunchAtLoginManager.shared.setEnabled(
+                enabled,
+                bundleIdentifier: bundleID,
+                executablePath: executablePath,
+                activateImmediately: true
+            )
             if enabled {
                 launchAtLoginAutoEnabled = true
             }

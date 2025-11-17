@@ -26,8 +26,18 @@ final class LaunchAtLoginManager {
         agentManager.isEnabled(bundleIdentifier: bundleIdentifier)
     }
 
-    func setEnabled(_ enabled: Bool, bundleIdentifier: String, executablePath: String) throws {
-        try agentManager.setEnabled(enabled, bundleIdentifier: bundleIdentifier, executablePath: executablePath)
+    func setEnabled(
+        _ enabled: Bool,
+        bundleIdentifier: String,
+        executablePath: String,
+        activateImmediately: Bool = true
+    ) throws {
+        try agentManager.setEnabled(
+            enabled,
+            bundleIdentifier: bundleIdentifier,
+            executablePath: executablePath,
+            activateImmediately: activateImmediately
+        )
     }
 }
 
@@ -38,7 +48,12 @@ private final class LaunchAgentManager {
         fileManager.fileExists(atPath: plistURL(for: bundleIdentifier).path)
     }
 
-    func setEnabled(_ enabled: Bool, bundleIdentifier: String, executablePath: String) throws {
+    func setEnabled(
+        _ enabled: Bool,
+        bundleIdentifier: String,
+        executablePath: String,
+        activateImmediately: Bool
+    ) throws {
         let plistURL = plistURL(for: bundleIdentifier)
         let directory = plistURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
@@ -46,6 +61,7 @@ private final class LaunchAgentManager {
         if enabled {
             let data = try launchAgentPlist(bundleIdentifier: bundleIdentifier, executablePath: executablePath)
             try data.write(to: plistURL, options: .atomic)
+            guard activateImmediately else { return }
             _ = try? runLaunchctl(["bootout", launchctlTarget(), plistURL.path])
             try runLaunchctl(["bootstrap", launchctlTarget(), plistURL.path])
         } else {
