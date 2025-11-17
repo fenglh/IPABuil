@@ -9,8 +9,38 @@ PRODUCTS_DIR="$DERIVED_DATA/Build/Products/$CONFIG"
 APP_NAME="IPABuild.app"
 APP_PATH="$PRODUCTS_DIR/$APP_NAME"
 STAGE_DIR="$ROOT_DIR/dist/DMGStage"
-DMG_OUTPUT="$ROOT_DIR/dist/certificate-manager.dmg"
 VOLUME_NAME="证书管理"
+INFO_PLIST="$ROOT_DIR/IPABuild/Info.plist"
+
+read_version_value() {
+  /usr/libexec/PlistBuddy -c "Print :$1" "$INFO_PLIST" 2>/dev/null || true
+}
+
+ensure_build_number() {
+  local current next
+  current=$(read_version_value "CFBundleVersion")
+  if [[ "$current" =~ ^[0-9]+$ ]]; then
+    next=$((current + 1))
+  else
+    next=1
+  fi
+  if /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $next" "$INFO_PLIST" >/dev/null 2>&1; then
+    :
+  else
+    /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $next" "$INFO_PLIST"
+  fi
+  echo "$next"
+}
+
+printf "==> 更新版本信息\n"
+VERSION=$(read_version_value "CFBundleShortVersionString")
+if [[ -z "$VERSION" ]]; then
+  echo "错误：Info.plist 中缺少 CFBundleShortVersionString" >&2
+  exit 1
+fi
+BUILD_NUMBER=$(ensure_build_number)
+DMG_BASENAME="certificate-manager-v${VERSION}-build${BUILD_NUMBER}.dmg"
+DMG_OUTPUT="$ROOT_DIR/dist/$DMG_BASENAME"
 
 printf "\n==> Building %s (%s)\n" "$SCHEME" "$CONFIG"
 xcodebuild \
