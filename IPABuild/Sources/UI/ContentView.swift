@@ -265,11 +265,10 @@ struct ContentView: View {
     @State private var showUntrustedWarning = true
     @State private var untrustedX509CertificateName = "Apple Push Services: com.dev.talk"
 
-    // 过滤与排序
+    // 过滤
     @State private var searchText: String = ""
     @State private var filterOption: CertificateFilterOption = .all
     @AppStorage("CertificateFilterOption") private var storedFilterOptionRaw: String = CertificateFilterOption.all.rawValue
-    @State private var sortOption: SortOption = .default
     // 列宽（可拖拽调整，持久化）
     @AppStorage("ColFavW") private var colFavWStore: Double = 110
     @AppStorage("ColNameW") private var colNameWStore: Double = 360
@@ -290,6 +289,7 @@ struct ContentView: View {
     @AppStorage("DingTalkFrequencyDays") private var dingTalkFrequencyDays: Int = 1
     @AppStorage("DingTalkSendHour") private var dingTalkSendHour: Int = 9
     @AppStorage("LaunchAtLoginEnabled") private var launchAtLoginEnabled = false
+    @AppStorage("LaunchAtLoginAutoEnabled") private var launchAtLoginAutoEnabled = false
     @AppStorage("DingTalkLastAutoSentTimestamp") private var dingTalkLastAutoSentTimestamp: Double = 0
     @State private var showDingTalkConfig = false
     @State private var isSendingDingTalk = false
@@ -342,18 +342,6 @@ struct ContentView: View {
                 return name.contains(q) || issuer.contains(q) || serial.contains(q)
             }
         }
-        switch sortOption {
-        case .nameAsc:
-            list.sort { (nameFor($0) ?? "") < (nameFor($1) ?? "") }
-        case .nameDesc:
-            list.sort { (nameFor($0) ?? "") > (nameFor($1) ?? "") }
-        case .expiryAsc:
-            list.sort { ($0.daysUntilExpiry.days, $0.daysUntilExpiry.hours) < ($1.daysUntilExpiry.days, $1.daysUntilExpiry.hours) }
-        case .expiryDesc:
-            list.sort { ($0.daysUntilExpiry.days, $0.daysUntilExpiry.hours) > ($1.daysUntilExpiry.days, $1.daysUntilExpiry.hours) }
-        default:
-            break
-        }
         return list
     }
     
@@ -398,33 +386,21 @@ struct ContentView: View {
                     }
                 }
                 .pickerStyle(MenuPickerStyle())
+                .frame(width: 220, alignment: .leading)
                 .help("点击选择要过滤的证书范围")
-
-                Button("重置") {
-                    filterOption = .all
-                    searchText = ""
-                    sortOption = .default
-                }
-                .buttonStyle(.bordered)
-                .help("重置过滤与排序")
-
-                Divider().frame(height: 20)
 
                 // 搜索框
                 TextField("搜索名称/签发者", text: $searchText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .frame(maxWidth: 260)
 
-                // 排序（与表头点击联动）
-                Picker("排序", selection: $sortOption) {
-                    Text("默认").tag(SortOption.default)
-                    Text("名称↑").tag(SortOption.nameAsc)
-                    Text("名称↓").tag(SortOption.nameDesc)
-                    Text("到期↑").tag(SortOption.expiryAsc) // 近到远
-                    Text("到期↓").tag(SortOption.expiryDesc) // 远到近
-                }
-                .frame(width: 160)
                 Spacer()
+
+                Toggle("开机启动", isOn: $launchAtLoginEnabled)
+                    .toggleStyle(SwitchToggleStyle())
+                    .frame(maxWidth: 140)
+                    .help("启动 macOS 时自动打开证书管理")
+
                 Button(action: refreshX509Certificates) {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -464,6 +440,7 @@ struct ContentView: View {
             loadData()
             filterOption = CertificateFilterOption(rawValue: storedFilterOptionRaw) ?? .all
             refreshLaunchAtLoginState()
+            ensureDefaultLaunchAtLoginEnabled()
         }
         .onChange(of: filterOption) { newValue in
             storedFilterOptionRaw = newValue.rawValue
@@ -485,7 +462,6 @@ struct ContentView: View {
                     get: { dingTalkSendHour },
                     set: { dingTalkSendHour = min(23, max(0, $0)) }
                 ),
-                launchAtLoginEnabled: $launchAtLoginEnabled,
                 frequencyDays: Binding(
                     get: { max(1, dingTalkFrequencyDays) },
                     set: { dingTalkFrequencyDays = max(1, $0) }
@@ -553,10 +529,12 @@ struct ContentView: View {
                             .font(.system(size: 12, weight: .semibold))
                             .frame(width: colFavW, alignment: .center)
                         columnResizer(left: bindFavW, right: bindNameW)
-                        headerSortableLabel(title: "名称", isActive: sortOption.isName, ascending: sortOption.isAscendingForName) { toggleSort(for: .name) }
+                        Text("名称")
+                            .font(.system(size: 12, weight: .semibold))
                             .frame(width: nameWidth, alignment: .leading)
             columnResizer(left: bindNameW, right: bindExpiryW)
-            headerSortableLabel(title: "过期时间", isActive: sortOption.isExpiry, ascending: sortOption.isAscendingForExpiry) { toggleSort(for: .expiry) }
+            Text("过期时间")
+                .font(.system(size: 12, weight: .semibold))
                 .frame(width: colExpiryW, alignment: .leading)
             Text("操作")
                 .frame(width: operationColumnWidth, alignment: .center)
@@ -907,6 +885,22 @@ struct ContentView: View {
         suppressLaunchStateUpdate = true
         launchAtLoginEnabled = actual
     }
+    
+    private func ensureDefaultLaunchAtLoginEnabled() {
+        if launchAtLoginAutoEnabled { return }
+        guard let bundleID = Bundle.main.bundleIdentifier else { return }
+        let appPath = Bundle.main.bundlePath
+        if appPath.contains("DerivedData") { return }
+        guard let executablePath = Bundle.main.executableURL?.path else { return }
+        do {
+            try LaunchAtLoginManager.shared.setEnabled(true, bundleIdentifier: bundleID, executablePath: executablePath)
+            launchAtLoginAutoEnabled = true
+            suppressLaunchStateUpdate = true
+            launchAtLoginEnabled = true
+        } catch {
+            // 自动开机启动失败不会打断流程，用户可在配置中手动设置。
+        }
+    }
 
     private func applyLaunchAtLoginState(enabled: Bool, showAlertOnUnsupported: Bool) {
         guard let bundleID = Bundle.main.bundleIdentifier else {
@@ -926,8 +920,19 @@ struct ContentView: View {
             launchAtLoginEnabled = false
             return
         }
+        guard let executablePath = Bundle.main.executableURL?.path else {
+            if showAlertOnUnsupported {
+                presentGeneralAlert("无法配置", message: "未找到可执行文件路径。")
+            }
+            suppressLaunchStateUpdate = true
+            launchAtLoginEnabled = false
+            return
+        }
         do {
-            try LaunchAtLoginManager.shared.setEnabled(enabled, bundleIdentifier: bundleID, appPath: appPath)
+            try LaunchAtLoginManager.shared.setEnabled(enabled, bundleIdentifier: bundleID, executablePath: executablePath)
+            if enabled {
+                launchAtLoginAutoEnabled = true
+            }
         } catch {
             if showAlertOnUnsupported {
                 let description = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -1005,47 +1010,6 @@ struct ContentView: View {
     }
 
     private func nameFor(_ cert: X509Certificate) -> String? { cert.subjectCommonNames?.first }
-
-    // 表头：可点击排序标签
-    @ViewBuilder
-    private func headerSortableLabel(title: String, isActive: Bool, ascending: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Text(title)
-                if isActive {
-                    Image(systemName: ascending ? "arrow.up" : "arrow.down")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-            }
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-
-    private enum SortKey { case name, expiry }
-    private func toggleSort(for key: SortKey) {
-        switch key {
-        case .name:
-            sortOption = (sortOption == .nameAsc) ? .nameDesc : .nameAsc
-        case .expiry:
-            sortOption = (sortOption == .expiryAsc) ? .expiryDesc : .expiryAsc
-        }
-    }
-}
-
-// 排序选项
-enum SortOption: String, CaseIterable, Identifiable {
-    case `default`
-    case nameAsc
-    case nameDesc
-    case expiryAsc
-    case expiryDesc
-    var id: String { rawValue }
-
-    var isName: Bool { self == .nameAsc || self == .nameDesc }
-    var isExpiry: Bool { self == .expiryAsc || self == .expiryDesc }
-    var isAscendingForName: Bool { self == .nameAsc }
-    var isAscendingForExpiry: Bool { self == .expiryAsc }
 }
 
 enum CertificateFilterOption: String, CaseIterable, Identifiable {
@@ -1080,7 +1044,6 @@ struct X509CertificateRow: View {
     let operationWidth: CGFloat
 
     var body: some View {
-        let showExpiryWarning = certificate.isExpired || certificate.isExpiringSoon
         return HStack(spacing: 8) {
             // 关注复选框
             Toggle("", isOn: $isFavorite)
@@ -1109,9 +1072,9 @@ struct X509CertificateRow: View {
             .frame(width: nameWidth, alignment: .leading)
 
             // 过期时间列
-            Text(certificate.formattedExpiry)
+            Text(expirySummaryText(for: certificate))
                 .font(.system(size: 13))
-                .foregroundColor(showExpiryWarning ? .red : .primary)
+                .foregroundColor(expiryColor(for: certificate))
             .frame(width: expiryWidth, alignment: .leading)
 
             Button("立即提醒", action: manualReminderAction)
@@ -1129,6 +1092,20 @@ struct X509CertificateRow: View {
         .background(Color.clear)
         .contentShape(Rectangle())
     }
+}
+
+private func expirySummaryText(for certificate: X509Certificate) -> String {
+    let base = certificate.formattedExpiry
+    if certificate.isExpired {
+        return "\(base) · 已过期"
+    }
+    let remainingDays = max(0, certificate.daysUntilExpiry.days)
+    let remainingHours = max(0, certificate.daysUntilExpiry.hours)
+    return "\(base) · 剩余\(remainingDays)天\(remainingHours)小时"
+}
+
+private func expiryColor(for certificate: X509Certificate) -> Color {
+    (certificate.isExpired || certificate.isExpiringSoon) ? .red : .primary
 }
 
 
@@ -1209,9 +1186,22 @@ struct X509CertificateDetailView: View {
                             .accentColor(certificate.isExpired ? .red : (certificate.isExpiringSoon ? .orange : .green))
                     }
                 }
-                Text("剩余: \(certificate.daysUntilExpiry.days) 天 \(certificate.daysUntilExpiry.hours) 小时")
-                    .font(.system(size: 12))
-                    .foregroundColor(certificate.isExpiringSoon ? .red : .secondary)
+                let prefix = certificate.isExpired ? "已过期: " : "剩余: "
+                let remainingDays = abs(certificate.daysUntilExpiry.days)
+                let remainingHours = abs(certificate.daysUntilExpiry.hours)
+                let remainingText =
+                    Text(prefix)
+                        .font(.system(size: 12))
+                + Text("\(remainingDays)")
+                        .font(.system(size: 20, weight: .bold))
+                + Text(" 天 ")
+                        .font(.system(size: 12))
+                + Text("\(remainingHours)")
+                        .font(.system(size: 20, weight: .bold))
+                + Text(" 小时")
+                        .font(.system(size: 12))
+                remainingText
+                    .foregroundColor(expiryColor(for: certificate))
             }
 
             // 用途 OID
@@ -1278,7 +1268,6 @@ struct DingTalkConfigView: View {
     @Binding var keyword: String
     @Binding var atMobiles: String
     @Binding var sendHour: Int
-    @Binding var launchAtLoginEnabled: Bool
     @Binding var frequencyDays: Int
     @Binding var lastAutoTimestamp: Double
     @Environment(\.dismiss) private var dismiss
@@ -1359,13 +1348,6 @@ struct DingTalkConfigView: View {
                     Text("距离下一次提醒：\(nextReminderDescription)")
                         .font(.footnote)
                         .foregroundColor(.secondary)
-                }
-            }
-            
-            GroupBox(label: Text("其他配置").font(.headline)) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle("开机启动", isOn: $launchAtLoginEnabled)
-                        .help("启用后，登录 macOS 时会自动启动证书管理。")
                 }
             }
             

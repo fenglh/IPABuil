@@ -1,5 +1,5 @@
 import Foundation
-import ServiceManagement
+import Darwin
 
 enum LaunchAtLoginError: LocalizedError {
     case missingBundleIdentifier
@@ -18,60 +18,39 @@ enum LaunchAtLoginError: LocalizedError {
 final class LaunchAtLoginManager {
     static let shared = LaunchAtLoginManager()
 
-    private let legacyManager = LegacyLaunchAgentManager()
+    private let agentManager = LaunchAgentManager()
 
     private init() {}
 
     func isEnabled(bundleIdentifier: String) -> Bool {
-        if #available(macOS 13.0, *) {
-            return SMAppService.mainApp.status == .enabled
-        } else {
-            return legacyManager.isEnabled(bundleIdentifier: bundleIdentifier)
-        }
+        agentManager.isEnabled(bundleIdentifier: bundleIdentifier)
     }
 
-    func setEnabled(_ enabled: Bool, bundleIdentifier: String, appPath: String) throws {
-        if #available(macOS 13.0, *) {
-            try updateUsingSMAppService(enabled: enabled)
-        } else {
-            try legacyManager.setEnabled(enabled, bundleIdentifier: bundleIdentifier, appPath: appPath)
-        }
-    }
-
-    @available(macOS 13.0, *)
-    private func updateUsingSMAppService(enabled: Bool) throws {
-        do {
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-        } catch {
-            throw LaunchAtLoginError.cannotRegister(error.localizedDescription)
-        }
+    func setEnabled(_ enabled: Bool, bundleIdentifier: String, executablePath: String) throws {
+        try agentManager.setEnabled(enabled, bundleIdentifier: bundleIdentifier, executablePath: executablePath)
     }
 }
 
-private final class LegacyLaunchAgentManager {
+private final class LaunchAgentManager {
     private let fileManager = FileManager.default
 
     func isEnabled(bundleIdentifier: String) -> Bool {
         fileManager.fileExists(atPath: plistURL(for: bundleIdentifier).path)
     }
 
-    func setEnabled(_ enabled: Bool, bundleIdentifier: String, appPath: String) throws {
+    func setEnabled(_ enabled: Bool, bundleIdentifier: String, executablePath: String) throws {
         let plistURL = plistURL(for: bundleIdentifier)
         let directory = plistURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
 
         if enabled {
-            let data = try launchAgentPlist(bundleIdentifier: bundleIdentifier, appPath: appPath)
+            let data = try launchAgentPlist(bundleIdentifier: bundleIdentifier, executablePath: executablePath)
             try data.write(to: plistURL, options: .atomic)
-            _ = try? runLaunchctl(["unload", plistURL.path])
-            try runLaunchctl(["load", "-w", plistURL.path])
+            _ = try? runLaunchctl(["bootout", launchctlTarget(), plistURL.path])
+            try runLaunchctl(["bootstrap", launchctlTarget(), plistURL.path])
         } else {
             if fileManager.fileExists(atPath: plistURL.path) {
-                _ = try? runLaunchctl(["unload", plistURL.path])
+                _ = try? runLaunchctl(["bootout", launchctlTarget(), plistURL.path])
                 try fileManager.removeItem(at: plistURL)
             }
         }
@@ -84,10 +63,11 @@ private final class LegacyLaunchAgentManager {
             .appendingPathComponent("\(bundleIdentifier).launchagent.plist")
     }
 
-    private func launchAgentPlist(bundleIdentifier: String, appPath: String) throws -> Data {
+    private func launchAgentPlist(bundleIdentifier: String, executablePath: String) throws -> Data {
         let dict: [String: Any] = [
             "Label": bundleIdentifier,
-            "ProgramArguments": ["/usr/bin/open", appPath],
+            "Program": executablePath,
+            "ProgramArguments": [executablePath],
             "RunAtLoad": true,
             "KeepAlive": false
         ]
@@ -109,5 +89,10 @@ private final class LegacyLaunchAgentManager {
             throw LaunchAtLoginError.cannotRegister(message.trimmingCharacters(in: .whitespacesAndNewlines))
         }
         return process.terminationStatus
+    }
+
+    private func launchctlTarget() -> String {
+        let uid = getuid()
+        return "gui/\(uid)"
     }
 }
