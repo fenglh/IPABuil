@@ -23,6 +23,7 @@
 		0CB18F5B2937B22B00C58AAD /* ExportOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */; };
 		0CB5AC7A2EB91DDA0059CC70 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB5AC782EB91DDA0059CC70 /* ContentView.swift */; };
 		0CB5AC7E2EB91FCE0059CC70 /* IPABuildApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB5AC7D2EB91FCE0059CC70 /* IPABuildApp.swift */; };
+		2A0BB473755842BFAABC0049675CA20 /* LaunchAtLoginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8417FED1A49749C3B27CA1654F3DA65C /* LaunchAtLoginManager.swift */; };
 		0CCC20F32937A73D00B9EA88 /* Entitlements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC20F12937A73D00B9EA88 /* Entitlements.swift */; };
 		0CCC20F62937AD9800B9EA88 /* Destination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC20F52937AD9800B9EA88 /* Destination.swift */; };
 		0CF298762933417400120FEE /* ShellOut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF298752933417400120FEE /* ShellOut.swift */; };
@@ -64,6 +65,7 @@
 		0CB18F5A2937B22B00C58AAD /* ExportOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportOptions.swift; sourceTree = "<group>"; };
 		0CB5AC782EB91DDA0059CC70 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		0CB5AC7D2EB91FCE0059CC70 /* IPABuildApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPABuildApp.swift; sourceTree = "<group>"; };
+		8417FED1A49749C3B27CA1654F3DA65C /* LaunchAtLoginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManager.swift; sourceTree = "<group>"; };
 		0CCC20F12937A73D00B9EA88 /* Entitlements.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Entitlements.swift; sourceTree = "<group>"; };
 		0CCC20F52937AD9800B9EA88 /* Destination.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Destination.swift; sourceTree = "<group>"; };
 		0CF298752933417400120FEE /* ShellOut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellOut.swift; sourceTree = "<group>"; };
@@ -127,6 +129,7 @@
 				0C6378E72930577B0080CAFD /* enum.swift */,
 				0C2D0CCD291EB1AB0096284F /* MobileProvision.swift */,
 				0C2D0CBC291E92290096284F /* IPABuild.swift */,
+				8417FED1A49749C3B27CA1654F3DA65C /* LaunchAtLoginManager.swift */,
 				0CF298752933417400120FEE /* ShellOut.swift */,
 			);
 			path = Sources;
@@ -293,6 +296,7 @@
 				0C2D0CD1291EBA360096284F /* MobileProvision+Extension.swift in Sources */,
 				0C6378E2293052200080CAFD /* Date+Extension.swift in Sources */,
 				0C2D0CBD291E92290096284F /* IPABuild.swift in Sources */,
+				2A0BB473755842BFAABC0049675CA20 /* LaunchAtLoginManager.swift in Sources */,
 				0CB18F5B2937B22B00C58AAD /* ExportOptions.swift in Sources */,
 				0C6378E4293056FE0080CAFD /* PBXNativeTarget+Extension.swift in Sources */,
 				0CCC20F32937A73D00B9EA88 /* Entitlements.swift in Sources */,

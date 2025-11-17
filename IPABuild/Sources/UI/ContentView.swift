@@ -10,6 +10,7 @@ import SwiftUI
 import ASN1Decoder
 import AppKit
 import CryptoKit
+import AppKit
 
 private enum DingTalkReminderReason {
     case auto
@@ -62,7 +63,7 @@ final class DingTalkReminderManager {
     func start() {
         guard timer == nil else { return }
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now() + 5, repeating: .seconds(3600), leeway: .seconds(60))
+        timer.schedule(deadline: .now() + 5, repeating: .seconds(60), leeway: .seconds(10))
         timer.setEventHandler { [weak self] in
             self?.performAutoReminder()
         }
@@ -294,9 +295,6 @@ struct ContentView: View {
     @State private var isSendingDingTalk = false
     @State private var showDingTalkAlert = false
     @State private var dingTalkAlertMessage: String? = nil
-    @State private var showGeneralAlert = false
-    @State private var generalAlertTitle: String = ""
-    @State private var generalAlertMessage: String? = nil
     @State private var suppressLaunchStateUpdate = false
     @State private var currentManualSendingID: String? = nil
     @State private var isGlobalReminderInProgress = false
@@ -465,7 +463,7 @@ struct ContentView: View {
         .onAppear {
             loadData()
             filterOption = CertificateFilterOption(rawValue: storedFilterOptionRaw) ?? .all
-            applyLaunchAtLoginState(enabled: launchAtLoginEnabled, showAlertOnUnsupported: false)
+            refreshLaunchAtLoginState()
         }
         .onChange(of: filterOption) { newValue in
             storedFilterOptionRaw = newValue.rawValue
@@ -499,11 +497,6 @@ struct ContentView: View {
             Button("好的", role: .cancel) { }
         } message: {
             Text(dingTalkAlertMessage ?? "")
-        }
-        .alert(generalAlertTitle, isPresented: $showGeneralAlert) {
-            Button("好的", role: .cancel) { }
-        } message: {
-            Text(generalAlertMessage ?? "")
         }
     }
     
@@ -893,9 +886,26 @@ struct ContentView: View {
     }
     
     private func presentGeneralAlert(_ title: String, message: String) {
-        generalAlertTitle = title
-        generalAlertMessage = message
-        showGeneralAlert = true
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = title
+            alert.informativeText = message
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "好的")
+            let targetWindow = NSApp.keyWindow?.attachedSheet ?? NSApp.keyWindow
+            if let window = targetWindow {
+                alert.beginSheetModal(for: window, completionHandler: nil)
+            } else {
+                alert.runModal()
+            }
+        }
+    }
+    
+    private func refreshLaunchAtLoginState() {
+        guard let bundleID = Bundle.main.bundleIdentifier else { return }
+        let actual = LaunchAtLoginManager.shared.isEnabled(bundleIdentifier: bundleID)
+        suppressLaunchStateUpdate = true
+        launchAtLoginEnabled = actual
     }
 
     private func applyLaunchAtLoginState(enabled: Bool, showAlertOnUnsupported: Bool) {
@@ -907,26 +917,22 @@ struct ContentView: View {
             launchAtLoginEnabled = false
             return
         }
-        let fm = FileManager.default
-        let launchAgentsDir = fm.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library")
-            .appendingPathComponent("LaunchAgents")
-        let plistURL = launchAgentsDir.appendingPathComponent("\(bundleID).launchagent.plist")
-        do {
-            try fm.createDirectory(at: launchAgentsDir, withIntermediateDirectories: true, attributes: nil)
-            if enabled {
-                let data = try launchAgentPlist(for: bundleID)
-                try data.write(to: plistURL, options: .atomic)
-                _ = runLaunchctlSilently(["bootout", launchctlTarget(), plistURL.path])
-                try runLaunchctl(["bootstrap", launchctlTarget(), plistURL.path])
-            } else {
-                if fm.fileExists(atPath: plistURL.path) {
-                    _ = runLaunchctlSilently(["bootout", launchctlTarget(), plistURL.path])
-                    try fm.removeItem(at: plistURL)
-                }
+        let appPath = Bundle.main.bundlePath
+        if enabled && appPath.contains("DerivedData") {
+            if showAlertOnUnsupported {
+                presentGeneralAlert("无法配置", message: "请先将应用拖到 /Applications 或其它永久路径后再启用开机启动。")
             }
+            suppressLaunchStateUpdate = true
+            launchAtLoginEnabled = false
+            return
+        }
+        do {
+            try LaunchAtLoginManager.shared.setEnabled(enabled, bundleIdentifier: bundleID, appPath: appPath)
         } catch {
-            presentGeneralAlert("配置失败", message: "无法更新开机启动：\(error.localizedDescription)")
+            if showAlertOnUnsupported {
+                let description = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                presentGeneralAlert("配置失败", message: "无法更新开机启动：\(description)")
+            }
             suppressLaunchStateUpdate = true
             launchAtLoginEnabled = !enabled
         }
@@ -999,47 +1005,6 @@ struct ContentView: View {
     }
 
     private func nameFor(_ cert: X509Certificate) -> String? { cert.subjectCommonNames?.first }
-
-    private func launchAgentPlist(for bundleID: String) throws -> Data {
-        let appPath = Bundle.main.bundlePath
-        let dict: [String: Any] = [
-            "Label": bundleID,
-            "ProgramArguments": ["/usr/bin/open", appPath],
-            "RunAtLoad": true,
-            "KeepAlive": false
-        ]
-        return try PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0)
-    }
-    
-    private func runLaunchctl(_ arguments: [String]) throws {
-        let process = Process()
-        process.launchPath = "/bin/launchctl"
-        process.arguments = arguments
-        let pipe = Pipe()
-        process.standardError = pipe
-        try process.run()
-        process.waitUntilExit()
-        if process.terminationStatus != 0 {
-            let errorData = pipe.fileHandleForReading.readDataToEndOfFile()
-            let message = String(data: errorData, encoding: .utf8) ?? "launchctl 执行失败"
-            throw NSError(domain: "LaunchAgent", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: message])
-        }
-    }
-
-    @discardableResult
-    private func runLaunchctlSilently(_ arguments: [String]) -> Bool {
-        do {
-            try runLaunchctl(arguments)
-            return true
-        } catch {
-            return false
-        }
-    }
-    
-    private func launchctlTarget() -> String {
-        let uid = getuid()
-        return "gui/\(uid)"
-    }
 
     // 表头：可点击排序标签
     @ViewBuilder
