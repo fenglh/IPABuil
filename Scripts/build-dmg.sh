@@ -33,14 +33,7 @@ ensure_build_number() {
 }
 
 printf "==> 更新版本信息\n"
-VERSION=$(read_version_value "CFBundleShortVersionString")
-if [[ -z "$VERSION" ]]; then
-  echo "错误：Info.plist 中缺少 CFBundleShortVersionString" >&2
-  exit 1
-fi
-BUILD_NUMBER=$(ensure_build_number)
-DMG_BASENAME="certificate-manager-v${VERSION}-build${BUILD_NUMBER}.dmg"
-DMG_OUTPUT="$ROOT_DIR/dist/$DMG_BASENAME"
+ensure_build_number >/dev/null
 
 printf "\n==> Building %s (%s)\n" "$SCHEME" "$CONFIG"
 xcodebuild \
@@ -54,6 +47,27 @@ if [ ! -d "$APP_PATH" ]; then
   echo "错误：未找到构建产物 $APP_PATH" >&2
   exit 1
 fi
+
+FINAL_INFO_PLIST="$APP_PATH/Contents/Info.plist"
+VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$FINAL_INFO_PLIST" 2>/dev/null || true)
+BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$FINAL_INFO_PLIST" 2>/dev/null || true)
+if [[ -z "$VERSION" ]]; then
+  VERSION=$(read_version_value "CFBundleShortVersionString")
+fi
+if [[ -z "$VERSION" ]]; then
+  echo "错误：无法解析 CFBundleShortVersionString" >&2
+  exit 1
+fi
+if [[ -z "$BUILD_NUMBER" ]]; then
+  BUILD_NUMBER=$(read_version_value "CFBundleVersion")
+fi
+if [[ -z "$BUILD_NUMBER" ]]; then
+  echo "错误：无法解析 CFBundleVersion" >&2
+  exit 1
+fi
+DMG_BASENAME="certificate-manager-v${VERSION}-build${BUILD_NUMBER}.dmg"
+DMG_OUTPUT="$ROOT_DIR/dist/$DMG_BASENAME"
+printf "\n==> 本次打包版本：v%s (build %s)\n" "$VERSION" "$BUILD_NUMBER"
 
 printf "\n==> 准备 DMG 内容\n"
 rm -rf "$STAGE_DIR"
