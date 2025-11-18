@@ -482,6 +482,7 @@ struct ContentView: View {
         .onAppear {
             loadData()
             filterOption = CertificateFilterOption(rawValue: storedFilterOptionRaw) ?? .all
+            normalizeReminderDefaults()
             refreshLaunchAtLoginState()
             ensureDefaultLaunchAtLoginEnabled()
         }
@@ -947,6 +948,19 @@ struct ContentView: View {
             }
         } catch {
             // 自动开机启动失败不会打断流程，用户可在配置中手动设置。
+        }
+    }
+    
+    private func normalizeReminderDefaults() {
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: "DingTalkFrequencyDays") == nil || dingTalkFrequencyDays <= 0 {
+            dingTalkFrequencyDays = 1
+        }
+        if defaults.object(forKey: "DingTalkSendHour") == nil || dingTalkSendHour < 0 || dingTalkSendHour > 23 {
+            dingTalkSendHour = 10
+        }
+        if defaults.object(forKey: "DingTalkSendMinute") == nil || dingTalkSendMinute < 0 || dingTalkSendMinute > 59 {
+            dingTalkSendMinute = 30
         }
     }
 
