@@ -32,7 +32,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "208"
             endingLineNumber = "208"
-            landmarkName = "makeRequestURL(from:secret:)"
+            landmarkName = "sendDingTalkReminder(webhook:secret:keyword:atMobiles:certificates:reason:completion:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -48,7 +48,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "971"
             endingLineNumber = "971"
-            landmarkName = "applyLaunchAtLoginState(enabled:showAlertOnUnsupported:)"
+            landmarkName = "defaultInstalledExecutablePath()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0DBB27F5E7774B70AE10B756 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 787E6C5409CC46C8A06515A8 /* Logger.swift */; };
 		0C2D0CBD291E92290096284F /* IPABuild.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2D0CBC291E92290096284F /* IPABuild.swift */; };
 		0C2D0CCF291EB1AB0096284F /* MobileProvision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2D0CCD291EB1AB0096284F /* MobileProvision.swift */; };
 		0C2D0CD1291EBA360096284F /* MobileProvision+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2D0CD0291EBA360096284F /* MobileProvision+Extension.swift */; };
@@ -27,8 +28,8 @@
 		0CCC20F62937AD9800B9EA88 /* Destination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC20F52937AD9800B9EA88 /* Destination.swift */; };
 		0CF298762933417400120FEE /* ShellOut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF298752933417400120FEE /* ShellOut.swift */; };
 		2A0BB473755842BFAABC0049675CA20 /* LaunchAtLoginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8417FED1A49749C3B27CA1654F3DA65C /* LaunchAtLoginManager.swift */; };
-		7F3B3F7CDF5A417CA5BA3CA7 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5FD5EC13A365FF7EA967360A /* Resources/Assets.xcassets */; };
 		37B13C3D82639D4E62D45A13 /* libPods-IPABuild.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 535AFDC9F9BFB6DCDDC5EF28 /* libPods-IPABuild.a */; };
+		7F3B3F7CDF5A417CA5BA3CA7 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5FD5EC13A365FF7EA967360A /* Resources/Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -44,6 +45,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		787E6C5409CC46C8A06515A8 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		0C2D0C98291E555A0096284F /* 证书提醒.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "证书提醒.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C2D0C9B291E555A0096284F /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		0C2D0CBA291E6AF10096284F /* Accessibility.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accessibility.framework; path = System/Library/Frameworks/Accessibility.framework; sourceTree = SDKROOT; };
@@ -131,6 +133,7 @@
 				0C2D0CCD291EB1AB0096284F /* MobileProvision.swift */,
 				0C2D0CBC291E92290096284F /* IPABuild.swift */,
 				8417FED1A49749C3B27CA1654F3DA65C /* LaunchAtLoginManager.swift */,
+				787E6C5409CC46C8A06515A8 /* Logger.swift */,
 				0CF298752933417400120FEE /* ShellOut.swift */,
 			);
 			path = Sources;
@@ -207,7 +210,7 @@
 			);
 			name = IPABuild;
 			productName = IPABuild;
-		productReference = 0C2D0C98291E555A0096284F /* 证书提醒.app */;
+			productReference = 0C2D0C98291E555A0096284F /* 证书提醒.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -304,6 +307,7 @@
 				0CCC20F32937A73D00B9EA88 /* Entitlements.swift in Sources */,
 				0C2D0CDE292159970096284F /* Data+Extension.swift in Sources */,
 				0CA7BE462B3425B3000A3441 /* TimeInterval+Extension.swift in Sources */,
+				0DBB27F5E7774B70AE10B756 /* Logger.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -437,8 +441,8 @@
 				INFOPLIST_FILE = IPABuild/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
 				MARKETING_VERSION = 1.0.2;
-			PRODUCT_BUNDLE_IDENTIFIER = com.example.IPABuild;
-			PRODUCT_NAME = "证书提醒";
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.IPABuild;
+				PRODUCT_NAME = "证书提醒";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 			};
@@ -458,8 +462,8 @@
 				INFOPLIST_FILE = IPABuild/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
 				MARKETING_VERSION = 1.0.2;
-			PRODUCT_BUNDLE_IDENTIFIER = com.example.IPABuild;
-			PRODUCT_NAME = "证书提醒";
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.IPABuild;
+				PRODUCT_NAME = "证书提醒";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 			};

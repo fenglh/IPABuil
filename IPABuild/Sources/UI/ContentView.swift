@@ -102,31 +102,52 @@ final class DingTalkReminderManager {
     private func performAutoReminder() {
         let defaults = UserDefaults.standard
         guard let webhook = defaults.string(forKey: "DingTalkWebhookURL")?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !webhook.isEmpty else { return }
+              !webhook.isEmpty else {
+            LogManager.shared.log("自动提醒跳过：Webhook 未配置", level: .error)
+            return
+        }
         let frequency = defaults.integer(forKey: "DingTalkFrequencyDays")
-        guard frequency > 0 else { return }
+        guard frequency > 0 else {
+            LogManager.shared.log("自动提醒跳过：频率配置无效(\(frequency))", level: .error)
+            return
+        }
         let sendHour = defaults.integer(forKey: "DingTalkSendHour")
         let sendMinuteRaw = defaults.integer(forKey: "DingTalkSendMinute")
         let sendMinute = min(59, max(0, sendMinuteRaw))
         let lastTimestamp = defaults.double(forKey: "DingTalkLastAutoSentTimestamp")
         let now = Date()
         guard shouldSend(now: now, frequencyDays: frequency, targetHour: sendHour, targetMinute: sendMinute, lastTimestamp: lastTimestamp) else {
+            if let nextTarget = nextAutoReminderTargetDate(lastTimestamp: lastTimestamp, frequencyDays: frequency, targetHour: sendHour, targetMinute: sendMinute, referenceDate: now) {
+                LogManager.shared.log("自动提醒跳过：未到时间，下次 \(nextTarget)")
+            } else {
+                LogManager.shared.log("自动提醒跳过：无法计算下一次时间", level: .error)
+            }
             return
         }
         
         let starredIDs = Set(defaults.string(forKey: "UserStarredCertIDs")?
             .split(separator: ",")
             .map { String($0) } ?? [])
-        guard !starredIDs.isEmpty else { return }
+        guard !starredIDs.isEmpty else {
+            LogManager.shared.log("自动提醒跳过：暂无已关注证书")
+            return
+        }
         
-        guard let certificates = X509Certificate.findCertificates(in: .login) else { return }
+        guard let certificates = X509Certificate.findCertificates(in: .login) else {
+            LogManager.shared.log("自动提醒跳过：无法读取钥匙串证书", level: .error)
+            return
+        }
         let starredCertificates = certificates.filter { starredIDs.contains(certificateID($0)) }
-        guard !starredCertificates.isEmpty else { return }
+        guard !starredCertificates.isEmpty else {
+            LogManager.shared.log("自动提醒跳过：钥匙串中未找到关联证书")
+            return
+        }
         
         let secret = defaults.string(forKey: "DingTalkSecret") ?? ""
         let keyword = defaults.string(forKey: "DingTalkKeyword") ?? ""
         let atMobilesString = defaults.string(forKey: "DingTalkAtMobiles") ?? ""
         let atMobiles = atMobilesString.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        LogManager.shared.log("自动提醒开始：证书\(starredCertificates.count)个，频率\(frequency)天，时间\(sendHour):\(String(format: "%02d", sendMinute))")
         
         sendDingTalkReminder(
             webhook: webhook,
@@ -164,12 +185,14 @@ final class DingTalkReminderManager {
             return
         }
         guard let url = makeRequestURL(from: webhook, secret: secret) else {
+            LogManager.shared.log("自动提醒跳过：Webhook URL 无效", level: .error)
             completion(false)
             return
         }
         let message = buildMessage(for: certificates, reason: reason, keyword: keyword, atMobiles: atMobiles)
         let payload = DingTalkTextPayload(content: message, atMobiles: atMobiles)
         guard let body = try? JSONEncoder().encode(payload) else {
+            LogManager.shared.log("自动提醒跳过：payload 编码失败", level: .error)
             completion(false)
             return
         }
@@ -182,6 +205,7 @@ final class DingTalkReminderManager {
         URLSession.shared.dataTask(with: request) { data, response, error in
             self.isSending = false
             if let error = error {
+                LogManager.shared.log("自动提醒发送失败：\(error.localizedDescription)", level: .error)
                 NSLog("DingTalk auto reminder failed: \(error.localizedDescription)")
                 completion(false)
                 return
@@ -193,10 +217,12 @@ final class DingTalkReminderManager {
                 let result = try? JSONDecoder().decode(DingTalkRobotResponse.self, from: data),
                 result.errcode == 0
             else {
+                LogManager.shared.log("自动提醒发送失败：无效响应", level: .error)
                 NSLog("DingTalk auto reminder failed: invalid response")
                 completion(false)
                 return
             }
+            LogManager.shared.log("自动提醒发送成功")
             completion(true)
         }.resume()
     }
@@ -303,6 +329,7 @@ struct ContentView: View {
     @AppStorage("LaunchExecutablePathCache") private var launchExecutablePathStore: String = ""
     @AppStorage("DingTalkLastAutoSentTimestamp") private var dingTalkLastAutoSentTimestamp: Double = 0
     @State private var showDingTalkConfig = false
+    @State private var showLogViewer = false
     @State private var isSendingDingTalk = false
     @State private var showDingTalkAlert = false
     @State private var dingTalkAlertMessage: String? = nil
@@ -423,6 +450,11 @@ struct ContentView: View {
                     showDingTalkConfig = true
                 }
                 
+                Button("日志") {
+                    showLogViewer = true
+                }
+                .help("查看自动提醒日志")
+                
                 Button("立即提醒") {
                     triggerManualAllReminder()
                 }
@@ -483,6 +515,9 @@ struct ContentView: View {
                 ),
                 lastAutoTimestamp: $dingTalkLastAutoSentTimestamp
             )
+        }
+        .sheet(isPresented: $showLogViewer) {
+            LogViewerView()
         }
         .alert("钉钉提醒", isPresented: $showDingTalkAlert) {
             Button("好的", role: .cancel) { }
@@ -1412,6 +1447,62 @@ struct DingTalkConfigView: View {
         .padding(24)
         .frame(minWidth: 460, minHeight: 360)
         .onReceive(timer) { now = $0 }
+    }
+}
+
+struct LogViewerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var logText: String = ""
+    @State private var isClearing = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("日志")
+                    .font(.title3)
+                    .bold()
+                Spacer()
+                Button("刷新") {
+                    refreshLogs()
+                }
+                Button("清空") {
+                    clearLogs()
+                }
+                .disabled(isClearing)
+                Button("关闭") {
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            
+            ScrollView {
+                Text(logText.isEmpty ? "暂无日志" : logText)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(Color(NSColor.textBackgroundColor))
+            .cornerRadius(6)
+            
+            Spacer()
+        }
+        .padding(20)
+        .frame(minWidth: 600, minHeight: 400)
+        .onAppear(perform: refreshLogs)
+    }
+    
+    private func refreshLogs() {
+        logText = LogManager.shared.currentLogContents()
+    }
+    
+    private func clearLogs() {
+        guard !isClearing else { return }
+        isClearing = true
+        LogManager.shared.clearLogs {
+            DispatchQueue.main.async {
+                isClearing = false
+                refreshLogs()
+            }
+        }
     }
 }
 
