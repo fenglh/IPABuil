@@ -1355,22 +1355,38 @@ struct DingTalkConfigView: View {
                     TextField("提醒指定手机号（多个用逗号分隔）", text: $atMobiles)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
 
-                    Stepper(value: $frequencyDays, in: 1...30) {
-                        Text("自动发送频率：每 \(frequencyDays) 天")
-                    }
-                    
-                    Stepper(value: $sendHour, in: 0...23) {
-                        Text("发送时间：每天 \(sendHour) 时 \(String(format: "%02d", sendMinute)) 分")
-                    }
-                    Stepper(value: $sendMinute, in: 0...59) {
-                        Text("发送分钟：\(String(format: "%02d", sendMinute)) 分")
+                    HStack(spacing: 8) {
+                        Text("发送频率：每")
+                        Stepper(value: $frequencyDays, in: 1...30) {
+                            Text("\(frequencyDays) 天")
+                        }
+                        Text("，时间：")
+                        Stepper(value: $sendHour, in: 0...23) {
+                            Text("\(sendHour) 时")
+                        }
+                        Stepper(value: $sendMinute, in: 0...59) {
+                            Text("\(String(format: "%02d", sendMinute)) 分")
+                        }
                     }
                     
                     HStack(spacing: 12) {
                         Text("上次自动发送：\(lastAutoDescription)")
                         Spacer()
                         Button("清除记录") {
-                            lastAutoTimestamp = 0
+                            let nowDate = now
+                            if let futureTarget = nextAutoReminderTargetDate(
+                                lastTimestamp: 0,
+                                frequencyDays: frequencyDays,
+                                targetHour: sendHour,
+                                targetMinute: sendMinute,
+                                referenceDate: nowDate
+                            ), futureTarget > nowDate {
+                                let secondsPerDay = 86_400.0
+                                let adjusted = futureTarget.timeIntervalSince1970 - Double(frequencyDays) * secondsPerDay
+                                lastAutoTimestamp = adjusted
+                            } else {
+                                lastAutoTimestamp = 0
+                            }
                         }
                         .buttonStyle(.bordered)
                     }
