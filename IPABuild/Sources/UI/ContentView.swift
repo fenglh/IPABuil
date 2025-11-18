@@ -56,6 +56,41 @@ private struct DingTalkRobotResponse: Decodable {
     let errmsg: String?
 }
 
+private func nextAutoReminderTargetDate(lastTimestamp: Double, frequencyDays: Int, targetHour: Int, referenceDate: Date) -> Date? {
+    guard frequencyDays > 0 else { return nil }
+    let hour = min(23, max(0, targetHour))
+    let calendar = Calendar.current
+    if lastTimestamp <= 0 {
+        guard var candidate = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: referenceDate) else {
+            return nil
+        }
+        while candidate < referenceDate {
+            guard let next = calendar.date(byAdding: .day, value: frequencyDays, to: candidate) else {
+                return nil
+            }
+            candidate = next
+        }
+        return candidate
+    }
+    let lastDate = Date(timeIntervalSince1970: lastTimestamp)
+    guard var candidate = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: lastDate) else {
+        return nil
+    }
+    while candidate <= lastDate {
+        guard let next = calendar.date(byAdding: .day, value: frequencyDays, to: candidate) else {
+            return nil
+        }
+        candidate = next
+    }
+    while candidate < referenceDate {
+        guard let next = calendar.date(byAdding: .day, value: frequencyDays, to: candidate) else {
+            return nil
+        }
+        candidate = next
+    }
+    return candidate
+}
+
 final class DingTalkReminderManager {
     static let shared = DingTalkReminderManager()
     private var timer: DispatchSourceTimer?
@@ -120,21 +155,10 @@ final class DingTalkReminderManager {
     }
     
     private func shouldSend(now: Date, frequencyDays: Int, targetHour: Int, lastTimestamp: Double) -> Bool {
-        let hour = min(23, max(0, targetHour))
-        let calendar = Calendar.current
-        if lastTimestamp <= 0 {
-            let currentHour = calendar.component(.hour, from: now)
-            return currentHour >= hour
+        guard let target = nextAutoReminderTargetDate(lastTimestamp: lastTimestamp, frequencyDays: frequencyDays, targetHour: targetHour, referenceDate: now) else {
+            return false
         }
-        guard let nextBase = calendar.date(byAdding: .day, value: frequencyDays, to: Date(timeIntervalSince1970: lastTimestamp)) else {
-            return true
-        }
-        var components = calendar.dateComponents([.year, .month, .day], from: nextBase)
-        components.hour = hour
-        components.minute = 0
-        components.second = 0
-        guard let targetDate = calendar.date(from: components) else { return true }
-        return now >= targetDate
+        return now >= target
     }
     
     private func sendDingTalkReminder(
@@ -396,7 +420,7 @@ struct ContentView: View {
                 Toggle("开机启动", isOn: $launchAtLoginEnabled)
                     .toggleStyle(SwitchToggleStyle())
                     .frame(maxWidth: 140)
-                    .help("启动 macOS 时自动打开证书管理")
+                    .help("启动 macOS 时自动打开证书提醒")
 
                 Button(action: refreshX509Certificates) {
                     Image(systemName: "arrow.clockwise")
@@ -1303,29 +1327,11 @@ struct DingTalkConfigView: View {
     
     private var nextReminderDescription: String {
         guard frequencyDays > 0 else { return "未配置自动发送频率" }
-        let calendar = Calendar.current
-        let targetHour = min(23, max(0, sendHour))
-        let baseDate: Date
-        if lastAutoTimestamp > 0 {
-            baseDate = Date(timeIntervalSince1970: lastAutoTimestamp)
-        } else {
-            baseDate = Date()
-        }
-        guard let nextBase = calendar.date(byAdding: .day, value: frequencyDays, to: baseDate) else {
-            return "无法计算"
-        }
-        var components = calendar.dateComponents([.year, .month, .day], from: nextBase)
-        components.hour = targetHour
-        components.minute = 0
-        components.second = 0
-        guard let nextScheduled = calendar.date(from: components) else {
-            return "无法计算"
-        }
         let now = Date()
-        if nextScheduled <= now {
-            return "即将发送"
+        guard let target = nextAutoReminderTargetDate(lastTimestamp: lastAutoTimestamp, frequencyDays: frequencyDays, targetHour: sendHour, referenceDate: now) else {
+            return "无法计算"
         }
-        let remaining = nextScheduled.timeIntervalSince(now)
+        let remaining = target.timeIntervalSince(now)
         let days = Int(remaining) / 86_400
         let hours = (Int(remaining) % 86_400) / 3_600
         let minutes = (Int(remaining) % 3_600) / 60

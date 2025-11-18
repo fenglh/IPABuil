@@ -8,12 +8,12 @@ struct IPABuildApp: App {
     }
     
     var body: some Scene {
-        WindowGroup("证书管理", id: "mainWindow") {
+        WindowGroup("证书提醒", id: "mainWindow") {
             ContentView()
         }
         #if os(macOS)
         if #available(macOS 13.0, *) {
-            MenuBarExtra("证书管理", systemImage: "lock.shield") {
+            MenuBarExtra("证书提醒", systemImage: "lock.shield") {
                 MenuBarControls()
             }
         }
@@ -26,12 +26,12 @@ private struct MenuBarControls: View {
     @Environment(\.openWindow) private var openWindow
     
     var body: some View {
-        Button("打开证书管理") {
+        Button("打开证书提醒") {
             NSApp.activate(ignoringOtherApps: true)
             openWindow(id: "mainWindow")
         }
         Divider()
-        Button("退出证书管理") {
+        Button("退出证书提醒") {
             NSApplication.shared.terminate(nil)
         }
     }

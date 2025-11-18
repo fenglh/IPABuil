@@ -14,7 +14,7 @@ fi
 APP_BUNDLE_NAME="${APP_DISPLAY_NAME}.app"
 APP_PATH="$PRODUCTS_DIR/$APP_BUNDLE_NAME"
 STAGE_DIR="$ROOT_DIR/dist/DMGStage"
-VOLUME_NAME="证书管理"
+VOLUME_NAME="证书提醒"
 
 read_version_value() {
   /usr/libexec/PlistBuddy -c "Print :$1" "$INFO_PLIST" 2>/dev/null || true
