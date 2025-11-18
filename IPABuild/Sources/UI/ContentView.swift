@@ -56,33 +56,19 @@ private struct DingTalkRobotResponse: Decodable {
     let errmsg: String?
 }
 
-private func nextAutoReminderTargetDate(lastTimestamp: Double, frequencyDays: Int, targetHour: Int, referenceDate: Date) -> Date? {
+private func nextAutoReminderTargetDate(lastTimestamp: Double, frequencyDays: Int, targetHour: Int, targetMinute: Int, referenceDate: Date) -> Date? {
     guard frequencyDays > 0 else { return nil }
     let hour = min(23, max(0, targetHour))
+    let minute = min(59, max(0, targetMinute))
     let calendar = Calendar.current
     if lastTimestamp <= 0 {
-        guard var candidate = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: referenceDate) else {
-            return nil
-        }
-        while candidate < referenceDate {
-            guard let next = calendar.date(byAdding: .day, value: frequencyDays, to: candidate) else {
-                return nil
-            }
-            candidate = next
-        }
-        return candidate
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: referenceDate)
     }
     let lastDate = Date(timeIntervalSince1970: lastTimestamp)
-    guard var candidate = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: lastDate) else {
+    guard var candidate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: lastDate) else {
         return nil
     }
     while candidate <= lastDate {
-        guard let next = calendar.date(byAdding: .day, value: frequencyDays, to: candidate) else {
-            return nil
-        }
-        candidate = next
-    }
-    while candidate < referenceDate {
         guard let next = calendar.date(byAdding: .day, value: frequencyDays, to: candidate) else {
             return nil
         }
@@ -102,7 +88,7 @@ final class DingTalkReminderManager {
     func start() {
         guard timer == nil else { return }
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now() + 5, repeating: .seconds(60), leeway: .seconds(10))
+        timer.schedule(deadline: .now() + 5, repeating: .seconds(10), leeway: .seconds(2))
         timer.setEventHandler { [weak self] in
             self?.performAutoReminder()
         }
@@ -120,9 +106,11 @@ final class DingTalkReminderManager {
         let frequency = defaults.integer(forKey: "DingTalkFrequencyDays")
         guard frequency > 0 else { return }
         let sendHour = defaults.integer(forKey: "DingTalkSendHour")
+        let sendMinuteRaw = defaults.integer(forKey: "DingTalkSendMinute")
+        let sendMinute = min(59, max(0, sendMinuteRaw))
         let lastTimestamp = defaults.double(forKey: "DingTalkLastAutoSentTimestamp")
         let now = Date()
-        guard shouldSend(now: now, frequencyDays: frequency, targetHour: sendHour, lastTimestamp: lastTimestamp) else {
+        guard shouldSend(now: now, frequencyDays: frequency, targetHour: sendHour, targetMinute: sendMinute, lastTimestamp: lastTimestamp) else {
             return
         }
         
@@ -154,10 +142,11 @@ final class DingTalkReminderManager {
         }
     }
     
-    private func shouldSend(now: Date, frequencyDays: Int, targetHour: Int, lastTimestamp: Double) -> Bool {
-        guard let target = nextAutoReminderTargetDate(lastTimestamp: lastTimestamp, frequencyDays: frequencyDays, targetHour: targetHour, referenceDate: now) else {
+    private func shouldSend(now: Date, frequencyDays: Int, targetHour: Int, targetMinute: Int, lastTimestamp: Double) -> Bool {
+        guard let target = nextAutoReminderTargetDate(lastTimestamp: lastTimestamp, frequencyDays: frequencyDays, targetHour: targetHour, targetMinute: targetMinute, referenceDate: now) else {
             return false
         }
+        NSLog("Next auto Reminder Target Date:\(target), now:\(now)")
         return now >= target
     }
     
@@ -308,6 +297,7 @@ struct ContentView: View {
     @AppStorage("DingTalkAtMobiles") private var dingTalkAtMobilesStore: String = ""
     @AppStorage("DingTalkFrequencyDays") private var dingTalkFrequencyDays: Int = 1
     @AppStorage("DingTalkSendHour") private var dingTalkSendHour: Int = 9
+    @AppStorage("DingTalkSendMinute") private var dingTalkSendMinute: Int = 0
     @AppStorage("LaunchAtLoginEnabled") private var launchAtLoginEnabled = false
     @AppStorage("LaunchAtLoginAutoEnabled") private var launchAtLoginAutoEnabled = false
     @AppStorage("LaunchExecutablePathCache") private var launchExecutablePathStore: String = ""
@@ -482,6 +472,10 @@ struct ContentView: View {
                 sendHour: Binding(
                     get: { dingTalkSendHour },
                     set: { dingTalkSendHour = min(23, max(0, $0)) }
+                ),
+                sendMinute: Binding(
+                    get: { dingTalkSendMinute },
+                    set: { dingTalkSendMinute = min(59, max(0, $0)) }
                 ),
                 frequencyDays: Binding(
                     get: { max(1, dingTalkFrequencyDays) },
@@ -1312,9 +1306,12 @@ struct DingTalkConfigView: View {
     @Binding var keyword: String
     @Binding var atMobiles: String
     @Binding var sendHour: Int
+    @Binding var sendMinute: Int
     @Binding var frequencyDays: Int
     @Binding var lastAutoTimestamp: Double
     @Environment(\.dismiss) private var dismiss
+    @State private var now: Date = Date()
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     private var lastAutoDescription: String {
         guard lastAutoTimestamp > 0 else { return "尚未自动发送" }
@@ -1327,11 +1324,10 @@ struct DingTalkConfigView: View {
     
     private var nextReminderDescription: String {
         guard frequencyDays > 0 else { return "未配置自动发送频率" }
-        let now = Date()
-        guard let target = nextAutoReminderTargetDate(lastTimestamp: lastAutoTimestamp, frequencyDays: frequencyDays, targetHour: sendHour, referenceDate: now) else {
+        guard let target = nextAutoReminderTargetDate(lastTimestamp: lastAutoTimestamp, frequencyDays: frequencyDays, targetHour: sendHour, targetMinute: sendMinute, referenceDate: now) else {
             return "无法计算"
         }
-        let remaining = target.timeIntervalSince(now)
+        let remaining = max(target.timeIntervalSince(now), 0)
         let days = Int(remaining) / 86_400
         let hours = (Int(remaining) % 86_400) / 3_600
         let minutes = (Int(remaining) % 3_600) / 60
@@ -1364,12 +1360,22 @@ struct DingTalkConfigView: View {
                     }
                     
                     Stepper(value: $sendHour, in: 0...23) {
-                        Text("发送时间：每天 \(sendHour) 点")
+                        Text("发送时间：每天 \(sendHour) 时 \(String(format: "%02d", sendMinute)) 分")
+                    }
+                    Stepper(value: $sendMinute, in: 0...59) {
+                        Text("发送分钟：\(String(format: "%02d", sendMinute)) 分")
                     }
                     
-                    Text("上次自动发送：\(lastAutoDescription)")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 12) {
+                        Text("上次自动发送：\(lastAutoDescription)")
+                        Spacer()
+                        Button("清除记录") {
+                            lastAutoTimestamp = 0
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
                     
                     Text("距离下一次提醒：\(nextReminderDescription)")
                         .font(.footnote)
@@ -1389,6 +1395,7 @@ struct DingTalkConfigView: View {
         }
         .padding(24)
         .frame(minWidth: 460, minHeight: 360)
+        .onReceive(timer) { now = $0 }
     }
 }
 

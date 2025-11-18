@@ -30,9 +30,9 @@
             filePath = "IPABuild/Sources/UI/ContentView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "207"
-            endingLineNumber = "207"
-            landmarkName = "sendDingTalkReminder(webhook:secret:keyword:atMobiles:certificates:reason:completion:)"
+            startingLineNumber = "208"
+            endingLineNumber = "208"
+            landmarkName = "makeRequestURL(from:secret:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -46,9 +46,25 @@
             filePath = "IPABuild/Sources/UI/ContentView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "970"
-            endingLineNumber = "970"
+            startingLineNumber = "971"
+            endingLineNumber = "971"
             landmarkName = "applyLaunchAtLoginState(enabled:showAlertOnUnsupported:)"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "4D05029E-EE87-4393-8992-6427281C8218"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "IPABuild/Sources/UI/ContentView.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "132"
+            endingLineNumber = "132"
+            landmarkName = "performAutoReminder()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
