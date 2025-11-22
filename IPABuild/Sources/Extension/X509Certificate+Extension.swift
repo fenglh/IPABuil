@@ -177,7 +177,40 @@ extension X509Certificate {
             }
             certificates.append(certificate)
         }
-        return certificates
+        
+        certificates = certificates.filter { cer in
+            cer.subjectCommonNames?.first != nil
+        }
+        
+        
+//        return certificates
+        return filterDuplicatesFunctional(certificates)
+    }
+    
+    // 去掉同名证书的重复项
+    static func filterDuplicatesFunctional(_ certificates: [X509Certificate]) -> [X509Certificate] {
+        let groupedCertificates = Dictionary(grouping: certificates) { $0.subjectCommonNames?.first ?? "-" }
+        
+        return groupedCertificates.flatMap { (name, certs) in
+            if certs.count >= 2 {
+                // 同名证书≥2个，过滤出所有有效证书
+                let validCerts = certs.filter { certificate in
+                    guard let notBefore = certificate.notBefore,
+                          let notAfter = certificate.notAfter else {
+                        return false // 缺少有效期信息的视为无效
+                    }
+                    
+                    let now = Date()
+                    return now >= notBefore && now <= notAfter
+                }
+                
+                // 返回所有有效证书（可能为空数组、单个或多个）
+                return validCerts
+            } else {
+                // 同名证书只有1个，直接返回原数组
+                return certs
+            }
+        }
     }
 }
 
