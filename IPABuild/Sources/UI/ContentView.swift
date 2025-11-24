@@ -111,6 +111,8 @@ final class DingTalkReminderManager {
             LogManager.shared.log("自动提醒跳过：频率配置无效(\(frequency))", level: .error)
             return
         }
+        let thresholdRaw = defaults.integer(forKey: "DingTalkExpiryThresholdDays")
+        let expiryThreshold = thresholdRaw > 0 ? thresholdRaw : 30
         let sendHour = defaults.integer(forKey: "DingTalkSendHour")
         let sendMinuteRaw = defaults.integer(forKey: "DingTalkSendMinute")
         let sendMinute = min(59, max(0, sendMinuteRaw))
@@ -142,19 +144,22 @@ final class DingTalkReminderManager {
             LogManager.shared.log("自动提醒跳过：钥匙串中未找到关联证书")
             return
         }
+        let eligibleCertificates = starredCertificates.filter { shouldRemind(certificate: $0, thresholdDays: expiryThreshold) }
+        guard !eligibleCertificates.isEmpty else {
+            LogManager.shared.log("自动提醒跳过：暂无 \(expiryThreshold) 天内需要提醒的证书")
+            return
+        }
         
         let secret = defaults.string(forKey: "DingTalkSecret") ?? ""
-        let keyword = defaults.string(forKey: "DingTalkKeyword") ?? ""
         let atMobilesString = defaults.string(forKey: "DingTalkAtMobiles") ?? ""
         let atMobiles = atMobilesString.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-        LogManager.shared.log("自动提醒开始：证书\(starredCertificates.count)个，频率\(frequency)天，时间\(sendHour):\(String(format: "%02d", sendMinute))")
+        LogManager.shared.log("自动提醒开始：证书\(eligibleCertificates.count)/\(starredCertificates.count)个，频率\(frequency)天，时间\(sendHour):\(String(format: "%02d", sendMinute))，阈值\(expiryThreshold)天")
         
         sendDingTalkReminder(
             webhook: webhook,
             secret: secret,
-            keyword: keyword,
             atMobiles: atMobiles,
-            certificates: starredCertificates,
+            certificates: eligibleCertificates,
             reason: .auto
         ) { success in
             if success {
@@ -174,7 +179,6 @@ final class DingTalkReminderManager {
     private func sendDingTalkReminder(
         webhook: String,
         secret: String,
-        keyword: String,
         atMobiles: [String],
         certificates: [X509Certificate],
         reason: DingTalkReminderReason,
@@ -189,7 +193,7 @@ final class DingTalkReminderManager {
             completion(false)
             return
         }
-        let message = buildMessage(for: certificates, reason: reason, keyword: keyword, atMobiles: atMobiles)
+        let message = buildMessage(for: certificates, reason: reason, atMobiles: atMobiles)
         let payload = DingTalkTextPayload(content: message, atMobiles: atMobiles)
         guard let body = try? JSONEncoder().encode(payload) else {
             LogManager.shared.log("自动提醒跳过：payload 编码失败", level: .error)
@@ -249,14 +253,10 @@ final class DingTalkReminderManager {
     private func buildMessage(
         for certificates: [X509Certificate],
         reason: DingTalkReminderReason,
-        keyword: String,
         atMobiles: [String]
     ) -> String {
         let header: String = reason.header
         var lines: [String] = []
-        if !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            lines.append(keyword)
-        }
         lines.append(header)
         for cert in certificates {
             let name = cert.subjectCommonNames?.first ?? "-"
@@ -279,6 +279,11 @@ final class DingTalkReminderManager {
         }
         return lines.joined(separator: "\n")
     }
+    
+private func shouldRemind(certificate: X509Certificate, thresholdDays: Int) -> Bool {
+    let remainingDays = certificate.daysUntilExpiry.days
+    return remainingDays <= thresholdDays
+}
     
     private func certificateID(_ cert: X509Certificate) -> String {
         if let sn = cert.serialNumberHex, !sn.isEmpty {
@@ -319,11 +324,11 @@ struct ContentView: View {
     // 钉钉自动提醒配置
     @AppStorage("DingTalkWebhookURL") private var dingTalkWebhookURL: String = ""
     @AppStorage("DingTalkSecret") private var dingTalkSecretStore: String = ""
-    @AppStorage("DingTalkKeyword") private var dingTalkKeywordStore: String = ""
     @AppStorage("DingTalkAtMobiles") private var dingTalkAtMobilesStore: String = ""
     @AppStorage("DingTalkFrequencyDays") private var dingTalkFrequencyDays: Int = 1
     @AppStorage("DingTalkSendHour") private var dingTalkSendHour: Int = 9
     @AppStorage("DingTalkSendMinute") private var dingTalkSendMinute: Int = 0
+    @AppStorage("DingTalkExpiryThresholdDays") private var dingTalkExpiryThresholdDays: Int = 30
     @AppStorage("LaunchAtLoginEnabled") private var launchAtLoginEnabled = false
     @AppStorage("LaunchAtLoginAutoEnabled") private var launchAtLoginAutoEnabled = false
     @AppStorage("LaunchExecutablePathCache") private var launchExecutablePathStore: String = ""
@@ -395,10 +400,6 @@ struct ContentView: View {
     
     private var sanitizedDingTalkSecret: String {
         dingTalkSecretStore.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    
-    private var sanitizedDingTalkKeyword: String {
-        dingTalkKeywordStore.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     private var dingTalkAtMobiles: [String] {
@@ -500,7 +501,6 @@ struct ContentView: View {
             DingTalkConfigView(
                 webhookURL: $dingTalkWebhookURL,
                 secret: $dingTalkSecretStore,
-                keyword: $dingTalkKeywordStore,
                 atMobiles: $dingTalkAtMobilesStore,
                 sendHour: Binding(
                     get: { dingTalkSendHour },
@@ -514,7 +514,12 @@ struct ContentView: View {
                     get: { max(1, dingTalkFrequencyDays) },
                     set: { dingTalkFrequencyDays = max(1, $0) }
                 ),
-                lastAutoTimestamp: $dingTalkLastAutoSentTimestamp
+                expiryThreshold: Binding(
+                    get: { max(1, dingTalkExpiryThresholdDays) },
+                    set: { dingTalkExpiryThresholdDays = max(1, $0) }
+                ),
+                lastAutoTimestamp: $dingTalkLastAutoSentTimestamp,
+                starredCertificates: starredCertificatesList
             )
         }
         .sheet(isPresented: $showLogViewer) {
@@ -871,9 +876,6 @@ struct ContentView: View {
     private func buildDingTalkMessage(for certificates: [X509Certificate], reason: DingTalkReminderReason) -> String {
         let header: String = reason.header
         var lines: [String] = []
-        if !sanitizedDingTalkKeyword.isEmpty {
-            lines.append(sanitizedDingTalkKeyword)
-        }
         lines.append(header)
         let shouldUseBullets = !(certificates.count == 1 && reason.isSingleCertificate)
         for cert in certificates {
@@ -961,6 +963,9 @@ struct ContentView: View {
         }
         if defaults.object(forKey: "DingTalkSendMinute") == nil || dingTalkSendMinute < 0 || dingTalkSendMinute > 59 {
             dingTalkSendMinute = 30
+        }
+        if defaults.object(forKey: "DingTalkExpiryThresholdDays") == nil || dingTalkExpiryThresholdDays <= 0 {
+            dingTalkExpiryThresholdDays = 30
         }
     }
 
@@ -1352,12 +1357,13 @@ struct X509CertificateDetailView: View {
 struct DingTalkConfigView: View {
     @Binding var webhookURL: String
     @Binding var secret: String
-    @Binding var keyword: String
     @Binding var atMobiles: String
     @Binding var sendHour: Int
     @Binding var sendMinute: Int
     @Binding var frequencyDays: Int
+    @Binding var expiryThreshold: Int
     @Binding var lastAutoTimestamp: Double
+    let starredCertificates: [X509Certificate]
     @Environment(\.dismiss) private var dismiss
     @State private var now: Date = Date()
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -1371,7 +1377,17 @@ struct DingTalkConfigView: View {
         return formatter.string(from: date)
     }
     
+    private var thresholdEligibleCount: Int {
+        let threshold = max(1, expiryThreshold)
+        return starredCertificates.filter { certificate in
+            certificate.daysUntilExpiry.days <= threshold
+        }.count
+    }
+
     private var nextReminderDescription: String {
+        guard thresholdEligibleCount > 0 else {
+            return "暂无满足阈值的证书，自动提醒不会触发"
+        }
         guard frequencyDays > 0 else { return "未配置自动发送频率" }
         guard let target = nextAutoReminderTargetDate(lastTimestamp: lastAutoTimestamp, frequencyDays: frequencyDays, targetHour: sendHour, targetMinute: sendMinute, referenceDate: now) else {
             return "无法计算"
@@ -1382,6 +1398,15 @@ struct DingTalkConfigView: View {
         let minutes = (Int(remaining) % 3_600) / 60
         let seconds = Int(remaining) % 60
         return "剩余 \(days) 天 \(String(format: "%02d:%02d:%02d", hours, minutes, seconds))"
+    }
+
+    private var starredCertificatesCountDescription: String {
+        "当前已订阅的证书数量: \(starredCertificates.count)"
+    }
+
+    private var thresholdEligibleCountDescription: String {
+        let threshold = max(1, expiryThreshold)
+        return "当前已订阅的证书且有效期≤\(threshold)天的数量: \(thresholdEligibleCount)"
     }
     
     var body: some View {
@@ -1395,15 +1420,38 @@ struct DingTalkConfigView: View {
                     TextField("Webhook 地址", text: $webhookURL)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                     
-                    SecureField("加签 Secret（若未开启加签可留空）", text: $secret)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    
-                    TextField("关键词（若配置了关键词，请填写以确保消息包含）", text: $keyword)
+                    SecureField("加签 Secret", text: $secret)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                     
                     TextField("提醒指定手机号（多个用逗号分隔）", text: $atMobiles)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+            }
 
+            GroupBox(label: Text("自动提醒配置").font(.headline)) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 8) {
+                        Text("提醒阈值：证书有效天数≤")
+                        TextField("", value: $expiryThreshold, format: .number)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .frame(width: 70)
+                            .onChange(of: expiryThreshold) { newValue in
+                                expiryThreshold = min(max(newValue, 1), 365)
+                            }
+                        Text("天")
+                        Stepper("", value: $expiryThreshold, in: 1...365)
+                            .labelsHidden()
+                        Text("触发自动提醒")
+                        .help("仅当证书剩余有效天数不超过该阈值时，系统才会推送钉钉通知。")
+                    }
+                    
+                    Text(starredCertificatesCountDescription)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                    Text(thresholdEligibleCountDescription)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                    
                     HStack(spacing: 8) {
                         Text("发送频率：每")
                         Stepper(value: $frequencyDays, in: 1...30) {
@@ -1421,23 +1469,8 @@ struct DingTalkConfigView: View {
                     HStack(spacing: 12) {
                         Text("上次自动发送：\(lastAutoDescription)")
                         Spacer()
-                        Button("清除记录") {
-                            let nowDate = now
-                            if let futureTarget = nextAutoReminderTargetDate(
-                                lastTimestamp: 0,
-                                frequencyDays: frequencyDays,
-                                targetHour: sendHour,
-                                targetMinute: sendMinute,
-                                referenceDate: nowDate
-                            ), futureTarget > nowDate {
-                                let secondsPerDay = 86_400.0
-                                let adjusted = futureTarget.timeIntervalSince1970 - Double(frequencyDays) * secondsPerDay
-                                lastAutoTimestamp = adjusted
-                            } else {
-                                lastAutoTimestamp = 0
-                            }
-                        }
-                        .buttonStyle(.bordered)
+                        Button("清除记录") { }
+                            .hidden()
                     }
                     .font(.footnote)
                     .foregroundColor(.secondary)
