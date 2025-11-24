@@ -368,8 +368,8 @@ struct ContentView: View {
         switch filterOption {
         case .all:
             break
-        case .validOnly:
-            list = list.filter { !$0.isExpired }
+//        case .validOnly:
+//            list = list.filter { !$0.isExpired }
         case .starredOnly:
             let starred = getUserStarredIDs()
             list = list.filter { starred.contains(certificateID($0)) }
@@ -1106,16 +1106,16 @@ struct ContentView: View {
 
 enum CertificateFilterOption: String, CaseIterable, Identifiable {
     case all
-    case validOnly
-    case starredOnly
+//    case validOnly
     case withPrivateKey
+    case starredOnly
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
         case .all: return "所有证书"
-        case .validOnly: return "有效的证书"
+//        case .validOnly: return "有效的证书"
         case .starredOnly: return "已订阅的证书"
         case .withPrivateKey: return "我的证书"
         }
