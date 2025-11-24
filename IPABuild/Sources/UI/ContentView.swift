@@ -307,8 +307,8 @@ struct ContentView: View {
 
     // 过滤
     @State private var searchText: String = ""
-    @State private var filterOption: CertificateFilterOption = .all
-    @AppStorage("CertificateFilterOption") private var storedFilterOptionRaw: String = CertificateFilterOption.all.rawValue
+    @State private var filterOption: CertificateFilterOption = .withPrivateKey
+    @AppStorage("CertificateFilterOption") private var storedFilterOptionRaw: String = CertificateFilterOption.withPrivateKey.rawValue
     // 列宽（可拖拽调整，持久化）
     @AppStorage("ColFavW") private var colFavWStore: Double = 110
     @AppStorage("ColNameW") private var colNameWStore: Double = 360
@@ -482,7 +482,7 @@ struct ContentView: View {
         .frame(minWidth: 900, minHeight: 650)
         .onAppear {
             loadData()
-            filterOption = CertificateFilterOption(rawValue: storedFilterOptionRaw) ?? .all
+            filterOption = CertificateFilterOption(rawValue: storedFilterOptionRaw) ?? .withPrivateKey
             normalizeReminderDefaults()
             refreshLaunchAtLoginState()
             ensureDefaultLaunchAtLoginEnabled()
@@ -1117,7 +1117,7 @@ enum CertificateFilterOption: String, CaseIterable, Identifiable {
         case .all: return "所有证书"
         case .validOnly: return "有效的证书"
         case .starredOnly: return "已订阅的证书"
-        case .withPrivateKey: return "包含私钥的证书"
+        case .withPrivateKey: return "我的证书"
         }
     }
 }
